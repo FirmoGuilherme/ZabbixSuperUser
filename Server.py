@@ -1,3 +1,7 @@
+from Utils import getZabbixAPI, removeInvalidChar
+
+ZabAPI = getZabbixAPI()
+
 class Item():
 
     def __init__(self, raw_data):
@@ -93,6 +97,21 @@ class Item():
             lastvalue
             prevvalue
         """
+        if self.flags == "a discovered item":
+            self.setName()
+
+    def setName(self):
+        ## Disk discovery
+        if "vfs" in self.key_:
+            self.name = self.name.replace("$1", self.key_.split("[")[1].split(",")[0])
+
+        ## Network Interface Discovery
+        elif "net" in self.key_:
+            self.name = self.name.replace("$1", self.key_.split("[")[1][0:-1])
+
+        ## Oracle Tablespace Discovery
+        elif "oracle" in self.key_:
+            self.name = self.name[0:-7]
         
 
     def __translateNumeric(self , attribute, value):
@@ -194,20 +213,6 @@ class Item():
             }
         }
         setattr(self, attribute, translations[attribute][int(value)])
-
-    def toJSON(self):
-        from os import mkdir
-        from json import dump
-        config = {}
-        try:
-            mkdir(f"Servers/{self.host}")
-        except FileExistsError:
-            pass
-        for attribute, value in zip(self.__dict__, self.__dict__.values()):
-            if (attribute != "events" and attribute != "items" and attribute != "graphs" and attribute != "raw_data"):
-                config[attribute] = value
-        with open(f"Servers/{self.host}/config.json", "w") as json:
-            dump(config, json, indent = 4)
 
 class Graph():
 
@@ -557,21 +562,21 @@ class Servidor():
             for item in self.items:
                 name = removeInvalidChar(item.name)
                 if item.state == "not supported":
-                    self.__toJSON(item.__dict__, item.__dict__.values(), f"Servers/{self.host}/Items/Disabled/unSupported/{item.itemid} - {name}.json")
+                    self.__toJSON(item.__dict__, item.__dict__.values(), f"Servers/{self.host}/Items/Disabled/unSupported/{name}.json")
                 elif item.state == "disabled":
-                    self.__toJSON(item.__dict__, item.__dict__.values(), f"Servers/{self.host}/Items/Disabled/{item.itemid} - {name}.json")
+                    self.__toJSON(item.__dict__, item.__dict__.values(), f"Servers/{self.host}/Items/Disabled/{name}.json")
                 else:
-                    self.__toJSON(item.__dict__, item.__dict__.values(), f"Servers/{self.host}/Items/Enabled/{item.itemid} - {name}.json")
+                    self.__toJSON(item.__dict__, item.__dict__.values(), f"Servers/{self.host}/Items/Enabled/{name}.json")
 
         def graphs():
             for graph in self.graphs:
                 name = removeInvalidChar(graph.name)
-                self.__toJSON(graph.__dict__, graph.__dict__.values(), f"Servers/{self.host}/Graphs/{graph.graphid} - {name}.json")
+                self.__toJSON(graph.__dict__, graph.__dict__.values(), f"Servers/{self.host}/Graphs/{name}.json")
 
         def events():
             for event in self.events:
                 name = removeInvalidChar(event.name)
-                self.__toJSON(event.__dict__, event.__dict__.values(), f"Servers/{self.host}/Events/{event.eventid} - {name}.json")
+                self.__toJSON(event.__dict__, event.__dict__.values(), f"Servers/{self.host}/Events/{name}.json")
 
         items()
         graphs()
@@ -621,22 +626,3 @@ class Servidor():
 
 
 
-def removeInvalidChar(name):
-    words_blacklist = [
-    "{$SID}", 
-    "(SEG)",
-    "$1"
-    ]
-    char_blacklist = [
-        "/",
-        "º",
-        "-"
-    ]
-    filtered = name
-    for word in words_blacklist:
-        if word in name:
-            filtered = name.replace(word, "")
-    for char in char_blacklist:
-        if char in name:
-            filtered = filtered.replace(char, "")
-    return filtered

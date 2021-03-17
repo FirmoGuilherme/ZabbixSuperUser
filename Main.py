@@ -5,6 +5,7 @@ from json import load
 from datetime import datetime
 from pyzabbix import ZabbixAPI
 
+
 class errorHandler(Exception):
 
     def __init__(self, error):
@@ -44,13 +45,24 @@ class Zabbix():
     require = ["url", "user", "password"]
 
     def __init__(self, requirements = {}):
-        self.servidores = []
         self.API = ZabbixAPI(requirements["url"])
         self.API.login(requirements["user"], requirements["password"])
-        self.getServers()
+        self.readServers()
+        #self.setServers()
+
+    def readServers(self):
+        self.servidores = []
+        from os import listdir
+        for server in listdir("Servers"):
+            serverConfig, items, graphs, events = Servidor.readFromFile(server)
+            self.servidores.append(Servidor(serverConfig, items, graphs, events))
+
+
+
 
     
-    def getServers(self):
+    def setServers(self):
+        self.servidores = []
         for servidor in self.API.host.get(output="extend"):
             print("Creating object %s"% servidor["host"])
             items = self.API.item.get(hostids = servidor["hostid"])
@@ -59,8 +71,15 @@ class Zabbix():
             server = Servidor(servidor, items , graphs, events)
             self.servidores.append(server)
 
+    def serversToJSON(self):
+        for serverObj in self.servidores:
+            serverObj.saveAll()
+
+    def getServer(self, id = None, name = None):
+        return [server for server in self.servidores if (server.hostid == id or server.name == name)][0]
 
 
 if __name__ == "__main__":
     zab = Zabbix
-    
+    #zab.getServer(id = 10593)
+    #zab.serversToJSON()

@@ -153,7 +153,7 @@ class Item():
                 3: "XML data"
             },
             "request_method":{
-                0: "(default) GET",
+                0: "(default) set",
                 1: "POST",
                 2: "PUT",
                 3: "HEAD"
@@ -195,6 +195,19 @@ class Item():
         }
         setattr(self, attribute, translations[attribute][int(value)])
 
+    def toJSON(self):
+        from os import mkdir
+        from json import dump
+        config = {}
+        try:
+            mkdir(f"Servers/{self.host}")
+        except FileExistsError:
+            pass
+        for attribute, value in zip(self.__dict__, self.__dict__.values()):
+            if (attribute != "events" and attribute != "items" and attribute != "graphs" and attribute != "raw_data"):
+                config[attribute] = value
+        with open(f"Servers/{self.host}/config.json", "w") as json:
+            dump(config, json, indent = 4)
 
 class Graph():
 
@@ -290,9 +303,10 @@ class Event():
             "acknowledged",
             "c_eventid",
             ]
+        self.raw_data = raw_data
         for attribute in raw_data.keys():
+            setattr(self, attribute, raw_data[attribute])
             if attribute not in blacklist and raw_data[attribute].isnumeric():
-                setattr(self, attribute, raw_data[attribute])
                 self.__translateNumeric(attribute, raw_data[attribute])
         """
             eventid
@@ -351,27 +365,278 @@ class Event():
         }
         setattr(self, attribute, translations[attribute][int(value)])
 
+
 class Servidor():
 
     def __init__(self, raw_data, items, graphs, events):
+        blacklist = [
+            "hostid",
+            "proxy_hostid",
+            "disable_until",
+            "errors_from",
+            "lastaccess",
+            "ipmi_disable_until",
+            "snmp_disable_until",
+            "maintenanceid",
+            "maintenance_from",
+            "ipmi_errors_from",
+            "snmp_errors_from",
+            "jmx_disable_until",
+            "jmx_available",
+            "jmx_errors_from",
+            "templateid",
+            "tls_connect",
+            "auto_compress"
+        ]
+        self.raw_data = raw_data
         for attribute in raw_data.keys():
             setattr(self, attribute, raw_data[attribute])
-        self.__getItems(items)
-        self.__getGraphs(graphs)
-        self.__getEvents(events)
+            if attribute not in blacklist and raw_data[attribute].isnumeric():
+                self.__translateNumeric(attribute, raw_data[attribute])
+        self.__setItems(items)
+        self.__setGraphs(graphs)
+        self.__setEvents(events)
+        """
+            hostid
+            proxy_hostid
+            host
+            status
+            disable_until
+            error
+            available
+            errors_from
+            lastaccess
+            ipmi_authtype
+            ipmi_privilege
+            ipmi_username
+            ipmi_password
+            ipmi_disable_until
+            ipmi_available
+            snmp_disable_until
+            snmp_available
+            maintenanceid
+            maintenance_status
+            maintenance_type
+            maintenance_from
+            ipmi_errors_from
+            snmp_errors_from
+            ipmi_error
+            snmp_error
+            jmx_disable_until
+            jmx_available
+            jmx_errors_from
+            jmx_error
+            name
+            flags
+            templateid
+            description
+            tls_connect
+            tls_accept
+            tls_issuer
+            tls_subject
+            tls_psk_identity
+            tls_psk
+            proxy_address
+            auto_compress
+            inventory_mode
+         """
 
+    def __translateNumeric(self , attribute, value):
+        translations = {
+            "available":{
+                0: "(default) unknow",
+                1: "available",
+                2: "unavailable"
+            },
+            "flags":{
+                0: "a plain host",
+                4: "a discovered host"
+            },
+            "inventory_mode":{
+               -1: "disabled",
+                0: "(default) normal",
+                1: "automatic"
+            },
+            "ipmi_authtype":{
+               -1: "(default) default",
+                0: "none",
+                1: "MD2",
+                2: "MD5",
+                4: "straight",
+                5: "OEM",
+                6: "RMCP+"
+            },
+            "ipmi_available":{
+                0: "(default) unknow",
+                1: "available",
+                2: "unavailable"
+            },
+            "ipmi_privilege":{
+                1: "callback",
+                2: "(default) user",
+                3: "operator",
+                4: "admin",
+                5: "OEM"
+            },
+            "jxm_available":{
+                0: "(default) unknow",
+                1: "available",
+                2: "unavailable"
+            },
+            "maintenance_status":{
+                0: "(default) no maintenance",
+                1: "maintenance in effect"
+            },
+            "maintenance_type":{
+                0: "(default) maintenance with data collection",
+                1: "maintenance without data collection"
+            },
+            "snmp_available":{
+                0: "(default) unkown",
+                1: "available",
+                2: "unavailable"
+            },
+            "status":{
+                0: "(default) No encryption",
+                1: "unmonitored host"
+            },
+            "tls_connect":{
+                0: "(default) No encryption",
+                1: "PSK",
+                4: "certificate"
+            },
+            "tls_accept":{
+                1: "(default) No encryption",
+                2: "PSK",
+                4: "certificate"
+            }
+        }
+        setattr(self, attribute, translations[attribute][int(value)])
 
-    def __getEvents(self, events):
+    def __setEvents(self, events):
         self.events = []
         for event in events:
             self.events.append(Event(event))
 
-    def __getItems(self, items):
+    def __setItems(self, items):
         self.items = []
         for item in items:
             self.items.append(Item(item))
 
-    def __getGraphs(self, graphs):
+    def __setGraphs(self, graphs):
         self.graphs = []
         for graph in graphs:
             self.graphs.append(Graph(graph))
+
+    def __toJSON(self, attributes, values, file):
+        
+        from json import dump
+        config = {}
+
+        for attribute, value in zip(attributes, values):
+            if (attribute != "events" and attribute != "items" and attribute != "graphs" and attribute != "raw_data"):
+                config[attribute] = value
+        with open(file, "w") as json:
+            dump(config, json, indent = 4)
+
+    def saveAll(self):
+        from os import makedirs
+        try: makedirs(f"Servers/{self.host}/Items/Enabled")
+        except FileExistsError: pass
+        try: makedirs(f"Servers/{self.host}/Items/Disabled/unSupported")
+        except FileExistsError: pass
+        try: makedirs(f"Servers/{self.host}/Graphs")
+        except FileExistsError: pass
+        try: makedirs(f"Servers/{self.host}/Events")
+        except FileExistsError: pass
+
+        ## Server Config
+        self.__toJSON(self.__dict__, self.__dict__.values(), f"Servers/{self.host}/config.json")
+
+        def items():
+            for item in self.items:
+                name = removeInvalidChar(item.name)
+                if item.state == "not supported":
+                    self.__toJSON(item.__dict__, item.__dict__.values(), f"Servers/{self.host}/Items/Disabled/unSupported/{item.itemid} - {name}.json")
+                elif item.state == "disabled":
+                    self.__toJSON(item.__dict__, item.__dict__.values(), f"Servers/{self.host}/Items/Disabled/{item.itemid} - {name}.json")
+                else:
+                    self.__toJSON(item.__dict__, item.__dict__.values(), f"Servers/{self.host}/Items/Enabled/{item.itemid} - {name}.json")
+
+        def graphs():
+            for graph in self.graphs:
+                name = removeInvalidChar(graph.name)
+                self.__toJSON(graph.__dict__, graph.__dict__.values(), f"Servers/{self.host}/Graphs/{graph.graphid} - {name}.json")
+
+        def events():
+            for event in self.events:
+                name = removeInvalidChar(event.name)
+                self.__toJSON(event.__dict__, event.__dict__.values(), f"Servers/{self.host}/Events/{event.eventid} - {name}.json")
+
+        items()
+        graphs()
+        events()
+
+    def readFromFile(nome):
+        from json import load
+        from os import listdir
+        serverConfig = {}
+        items = []
+        graphs = []
+        events = []
+        with open(f"Servers/{nome}/config.json", "r") as Config:
+            data = load(Config)
+            for attribute, value in zip(data.keys(), data.values()):
+                serverConfig[attribute] = value
+        ## Items não suportados
+        for item in listdir(f"Servers/{nome}/Items/Disabled/unSupported"): 
+            with open(f"Servers/{nome}/Items/Disabled/unSupported/{item}", "r") as json:
+                data = load(json)
+            items.append(data)
+        ## Items desabilitados
+        for item in listdir(f"Servers/{nome}/Items/Disabled"): 
+            if item != "unSupported":
+                with open(f"Servers/{nome}/Items/Disabled/{item}", "r") as json:
+                    data = load(json)
+                items.append(data)
+        ## Items habilitados
+        for item in listdir(f"Servers/{nome}/Items/Enabled"): 
+            with open(f"Servers/{nome}/Items/Enabled/{item}", "r") as json:
+                data = load(json)
+            items.append(data)
+
+        ## Gráficos
+        for graph in listdir(f"Servers/{nome}/Graphs"): 
+            with open(f"Servers/{nome}/Graphs/{graph}", "r") as json:
+                data = load(json)
+            graphs.append(data)
+
+        ## Eventos
+        for event in listdir(f"Servers/{nome}/Events"): 
+            with open(f"Servers/{nome}/Events/{event}", "r") as json:
+                data = load(json)
+            events.append(data)
+
+        return serverConfig, items, graphs, events
+
+
+
+def removeInvalidChar(name):
+    words_blacklist = [
+    "{$SID}", 
+    "(SEG)",
+    "$1"
+    ]
+    char_blacklist = [
+        "/",
+        "º",
+        "-"
+    ]
+    filtered = name
+    for word in words_blacklist:
+        if word in name:
+            filtered = name.replace(word, "")
+    for char in char_blacklist:
+        if char in name:
+            filtered = filtered.replace(char, "")
+    return filtered

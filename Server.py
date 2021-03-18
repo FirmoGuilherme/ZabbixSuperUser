@@ -1,6 +1,7 @@
-from Utils import getZabbixAPI, removeInvalidChar
+from Utils import getZabbixAPI, removeInvalidChar, getImage, getBar, getSessID
 
 ZabAPI = getZabbixAPI()
+zabbixSessionID, phpSessionID = getSessID()
 
 class Item():
 
@@ -229,6 +230,8 @@ class Graph():
             setattr(self, attribute, raw_data[attribute])
             if attribute not in blacklist and raw_data[attribute].isnumeric():
                 self.__translateNumeric(attribute, raw_data[attribute])
+        img = self.__getImage()
+        img.save('teste.png')
         """
             graphid
             name
@@ -250,6 +253,10 @@ class Graph():
             ymax_itemid
             flags
         """
+
+    def __getImage(self):
+        self.image = getImage(url = "http://guardiao.workdb.com.br/chart2.php?graphid={}&from=now-1M%2FM&to=now-1M%2FM&profileIdx=web.graphs.filter&profileIdx2={}=um5etv25&screenid=".format(self.graphid, self.graphid),zbxsessID=zabbixSessionID, phpsessID = phpSessionID )
+        return self.image
 
     def __translateNumeric(self , attribute, value):
         translations = {
@@ -401,6 +408,7 @@ class Servidor():
         self.__setItems(items)
         self.__setGraphs(graphs)
         self.__setEvents(events)
+        self.__filterInnactive()
         """
             hostid
             proxy_hostid
@@ -529,54 +537,59 @@ class Servidor():
             self.items.append(Item(item))
 
     def __setGraphs(self, graphs):
+        barra = getBar()
         self.graphs = []
-        for graph in graphs:
-            self.graphs.append(Graph(graph))
+        for rawData in graphs:
+            graphObj = Graph(rawData)
+            self.graphs.append(graphObj)
+
+    def __filterInnactive(self):
+        self.itemsInactive = [item for item in self.items if (item.state == "not supported" or item.status == "disabled item")]
+        self.itemsActive = [item for item in self.items if (item.state != "not supported" or item.status != "disabled item")]
 
     def __toJSON(self, attributes, values, file):
-        
         from json import dump
         config = {}
-
         for attribute, value in zip(attributes, values):
-            if (attribute != "events" and attribute != "items" and attribute != "graphs" and attribute != "raw_data"):
+            if type(value) == str or type(value) == int and len(value) >= 1:
                 config[attribute] = value
         with open(file, "w") as json:
             dump(config, json, indent = 4)
 
     def saveAll(self):
         from os import makedirs
-        try: makedirs(f"Servers/{self.host}/Items/Enabled")
+        barra = getBar()
+        try: makedirs(f"Servers{barra}{self.host}{barra}Items{barra}Enabled")
         except FileExistsError: pass
-        try: makedirs(f"Servers/{self.host}/Items/Disabled/unSupported")
+        try: makedirs(f"Servers{barra}{self.host}{barra}Items{barra}Disabled{barra}unSupported")
         except FileExistsError: pass
-        try: makedirs(f"Servers/{self.host}/Graphs")
+        try: makedirs(f"Servers{barra}{self.host}{barra}Graphs")
         except FileExistsError: pass
-        try: makedirs(f"Servers/{self.host}/Events")
+        try: makedirs(f"Servers{barra}{self.host}{barra}Events")
         except FileExistsError: pass
 
         ## Server Config
-        self.__toJSON(self.__dict__, self.__dict__.values(), f"Servers/{self.host}/config.json")
+        self.__toJSON(self.__dict__, self.__dict__.values(), f"Servers{barra}{self.host}{barra}config.json")
 
         def items():
             for item in self.items:
                 name = removeInvalidChar(item.name)
                 if item.state == "not supported":
-                    self.__toJSON(item.__dict__, item.__dict__.values(), f"Servers/{self.host}/Items/Disabled/unSupported/{name}.json")
-                elif item.state == "disabled":
-                    self.__toJSON(item.__dict__, item.__dict__.values(), f"Servers/{self.host}/Items/Disabled/{name}.json")
+                    self.__toJSON(item.__dict__, item.__dict__.values(), f"Servers{barra}{self.host}{barra}Items{barra}Disabled{barra}unSupported{barra}{name}.json")
+                elif item.status == "disabled item":
+                    self.__toJSON(item.__dict__, item.__dict__.values(), f"Servers{barra}{self.host}{barra}Items{barra}Disabled{barra}{name}.json")
                 else:
-                    self.__toJSON(item.__dict__, item.__dict__.values(), f"Servers/{self.host}/Items/Enabled/{name}.json")
+                    self.__toJSON(item.__dict__, item.__dict__.values(), f"Servers{barra}{self.host}{barra}Items{barra}Enabled{barra}{name}.json")
 
         def graphs():
             for graph in self.graphs:
                 name = removeInvalidChar(graph.name)
-                self.__toJSON(graph.__dict__, graph.__dict__.values(), f"Servers/{self.host}/Graphs/{name}.json")
+                self.__toJSON(graph.__dict__, graph.__dict__.values(), f"Servers{barra}{self.host}{barra}Graphs{barra}{name}.json")
 
         def events():
             for event in self.events:
                 name = removeInvalidChar(event.name)
-                self.__toJSON(event.__dict__, event.__dict__.values(), f"Servers/{self.host}/Events/{name}.json")
+                self.__toJSON(event.__dict__, event.__dict__.values(), f"Servers{barra}{self.host}{barra}Events{barra}{name}.json")
 
         items()
         graphs()
@@ -585,40 +598,41 @@ class Servidor():
     def readFromFile(nome):
         from json import load
         from os import listdir
+        barra = getBar()
         serverConfig = {}
         items = []
         graphs = []
         events = []
-        with open(f"Servers/{nome}/config.json", "r") as Config:
+        with open(f"Servers{barra}{nome}{barra}config.json", "r") as Config:
             data = load(Config)
             for attribute, value in zip(data.keys(), data.values()):
                 serverConfig[attribute] = value
         ## Items não suportados
-        for item in listdir(f"Servers/{nome}/Items/Disabled/unSupported"): 
-            with open(f"Servers/{nome}/Items/Disabled/unSupported/{item}", "r") as json:
+        for item in listdir(f"Servers{barra}{nome}{barra}Items{barra}Disabled{barra}unSupported"): 
+            with open(f"Servers{barra}{nome}{barra}Items{barra}Disabled{barra}unSupported{barra}{item}", "r") as json:
                 data = load(json)
             items.append(data)
         ## Items desabilitados
-        for item in listdir(f"Servers/{nome}/Items/Disabled"): 
+        for item in listdir(f"Servers{barra}{nome}{barra}Items{barra}Disabled"): 
             if item != "unSupported":
-                with open(f"Servers/{nome}/Items/Disabled/{item}", "r") as json:
+                with open(f"Servers{barra}{nome}{barra}Items{barra}Disabled{barra}{item}", "r") as json:
                     data = load(json)
                 items.append(data)
         ## Items habilitados
-        for item in listdir(f"Servers/{nome}/Items/Enabled"): 
-            with open(f"Servers/{nome}/Items/Enabled/{item}", "r") as json:
+        for item in listdir(f"Servers{barra}{nome}{barra}Items{barra}Enabled"): 
+            with open(f"Servers{barra}{nome}{barra}Items{barra}Enabled{barra}{item}", "r") as json:
                 data = load(json)
             items.append(data)
 
         ## Gráficos
-        for graph in listdir(f"Servers/{nome}/Graphs"): 
-            with open(f"Servers/{nome}/Graphs/{graph}", "r") as json:
+        for graph in listdir(f"Servers{barra}{nome}{barra}Graphs"): 
+            with open(f"Servers{barra}{nome}{barra}Graphs{barra}{graph}", "r") as json:
                 data = load(json)
             graphs.append(data)
 
         ## Eventos
-        for event in listdir(f"Servers/{nome}/Events"): 
-            with open(f"Servers/{nome}/Events/{event}", "r") as json:
+        for event in listdir(f"Servers{barra}{nome}{barra}Events"): 
+            with open(f"Servers{barra}{nome}{barra}Events{barra}{event}", "r") as json:
                 data = load(json)
             events.append(data)
 

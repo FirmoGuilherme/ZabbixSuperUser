@@ -1,7 +1,13 @@
-from Utils import getZabbixAPI, removeInvalidChar, getImage, getBar, getSessID
+from Utils import getZabbixAPI, removeInvalidChar, getImage, getBar, getSessID, toJSON
+from time import mktime
+from json import dump
+from datetime import datetime
 
 ZabAPI = getZabbixAPI()
 zabbixSessionID, phpSessionID = getSessID()
+time_end = int(mktime(datetime.now().timetuple()))
+time_start = time_end - 60 * 60 * 24 * 31
+
 
 class Item():
 
@@ -224,14 +230,13 @@ class Graph():
             "height",
             "templateid",
             "ymin_itemid",
-            "ymax_itemid"
+            "ymax_itemid",
             ]
         for attribute in raw_data.keys():
             setattr(self, attribute, raw_data[attribute])
             if attribute not in blacklist and raw_data[attribute].isnumeric():
                 self.__translateNumeric(attribute, raw_data[attribute])
-        img = self.__getImage()
-        img.save('teste.png')
+        
         """
             graphid
             name
@@ -254,9 +259,12 @@ class Graph():
             flags
         """
 
-    def __getImage(self):
+    def getGraphImage(self):
         self.image = getImage(url = "http://guardiao.workdb.com.br/chart2.php?graphid={}&from=now-1M%2FM&to=now-1M%2FM&profileIdx=web.graphs.filter&profileIdx2={}=um5etv25&screenid=".format(self.graphid, self.graphid),zbxsessID=zabbixSessionID, phpsessID = phpSessionID )
         return self.image
+
+    def getItems(self):
+        return ZabAPI.graphitem.get(graphids = self.graphid)
 
     def __translateNumeric(self , attribute, value):
         translations = {
@@ -300,6 +308,24 @@ class Graph():
         }
         setattr(self, attribute, translations[attribute][int(value)])
 
+class GraphItem():
+
+    def __init__(self, raw_data):
+        for attribute in raw_data.keys():
+            setattr(self, attribute, raw_data[attribute])
+        
+
+    def historyFilter(self):
+        history = [int(hist["value"]) for hist in ZabAPI.history.get(itemids = self.itemid, time_from=time_start, time_till=time_end, output='extend', limit='10000000') if len(hist) > 0]
+        if self.itemid == "34273":
+            print(history)
+        if len(history) == 0: return False
+        else:
+            self.max = max(history)
+            self.min = min(history)
+            self.average = (sum(history) / len(history))
+            return True
+        
 class Event():
 
     def __init__(self, raw_data):
@@ -537,7 +563,6 @@ class Servidor():
             self.items.append(Item(item))
 
     def __setGraphs(self, graphs):
-        barra = getBar()
         self.graphs = []
         for rawData in graphs:
             graphObj = Graph(rawData)
@@ -547,15 +572,23 @@ class Servidor():
         self.itemsInactive = [item for item in self.items if (item.state == "not supported" or item.status == "disabled item")]
         self.itemsActive = [item for item in self.items if (item.state != "not supported" or item.status != "disabled item")]
 
-    def __toJSON(self, attributes, values, file):
-        from json import dump
-        config = {}
-        for attribute, value in zip(attributes, values):
-            if type(value) == str or type(value) == int and len(value) >= 1:
-                config[attribute] = value
-        with open(file, "w") as json:
-            dump(config, json, indent = 4)
-
+    def getValues(self):
+        barra = getBar()
+        for graph in self.graphs:
+            mydict = {}
+            name = removeInvalidChar(graph.name)
+            graphItems = graph.getItems()
+            for item in graphItems:
+                graphItemOBJ = GraphItem(item)
+                hasHistory = graphItemOBJ.historyFilter()
+                if hasHistory:
+                    itemName = [item.name for item in self.items if item.itemid == graphItemOBJ.itemid][0]
+                    mydict[itemName] = {}
+                    for att, value in zip(graphItemOBJ.__dict__, graphItemOBJ.__dict__.values()):
+                         mydict[itemName][att] = value
+            with open(f"Servers{barra}{self.host}{barra}Graphs{barra}{name} - Values.json", "w") as json:
+                dump(mydict, json, indent=4)
+                    
     def saveAll(self):
         from os import makedirs
         barra = getBar()
@@ -569,27 +602,29 @@ class Servidor():
         except FileExistsError: pass
 
         ## Server Config
-        self.__toJSON(self.__dict__, self.__dict__.values(), f"Servers{barra}{self.host}{barra}config.json")
+        toJSON(self.__dict__, self.__dict__.values(), f"Servers{barra}{self.host}{barra}config.json")
 
         def items():
             for item in self.items:
                 name = removeInvalidChar(item.name)
                 if item.state == "not supported":
-                    self.__toJSON(item.__dict__, item.__dict__.values(), f"Servers{barra}{self.host}{barra}Items{barra}Disabled{barra}unSupported{barra}{name}.json")
+                    toJSON(item.__dict__, item.__dict__.values(), f"Servers{barra}{self.host}{barra}Items{barra}Disabled{barra}unSupported{barra}{name}.json")
                 elif item.status == "disabled item":
-                    self.__toJSON(item.__dict__, item.__dict__.values(), f"Servers{barra}{self.host}{barra}Items{barra}Disabled{barra}{name}.json")
+                    toJSON(item.__dict__, item.__dict__.values(), f"Servers{barra}{self.host}{barra}Items{barra}Disabled{barra}{name}.json")
                 else:
-                    self.__toJSON(item.__dict__, item.__dict__.values(), f"Servers{barra}{self.host}{barra}Items{barra}Enabled{barra}{name}.json")
+                    toJSON(item.__dict__, item.__dict__.values(), f"Servers{barra}{self.host}{barra}Items{barra}Enabled{barra}{name}.json")
 
         def graphs():
             for graph in self.graphs:
                 name = removeInvalidChar(graph.name)
-                self.__toJSON(graph.__dict__, graph.__dict__.values(), f"Servers{barra}{self.host}{barra}Graphs{barra}{name}.json")
+                img = graph.getGraphImage()
+                img.save(f"Servers{barra}{self.host}{barra}Graphs{barra}{name}.png")
+                toJSON(graph.__dict__, graph.__dict__.values(), f"Servers{barra}{self.host}{barra}Graphs{barra}{name}.json")
 
         def events():
             for event in self.events:
                 name = removeInvalidChar(event.name)
-                self.__toJSON(event.__dict__, event.__dict__.values(), f"Servers{barra}{self.host}{barra}Events{barra}{name}.json")
+                toJSON(event.__dict__, event.__dict__.values(), f"Servers{barra}{self.host}{barra}Events{barra}{name}.json")
 
         items()
         graphs()
@@ -639,4 +674,24 @@ class Servidor():
         return serverConfig, items, graphs, events
 
 
+
+def genServers(id):
+    servidores = []
+    if not id: 
+        for servidor in ZabAPI.host.get(output="extend"):
+            print("Creating object %s"% servidor["host"])
+            items = ZabAPI.item.get(hostids = servidor["hostid"])
+            graphs = ZabAPI.graph.get(hostids = servidor["hostid"])
+            events = ZabAPI.event.get(hostids = servidor["hostid"])
+            server = Servidor(servidor, items , graphs, events)
+            servidores.append(server)
+    else:
+        for servidor in ZabAPI.host.get(hostids=id, output="extend"):
+            print("Creating object %s"% servidor["host"])
+            items = ZabAPI.item.get(hostids = servidor["hostid"])
+            graphs = ZabAPI.graph.get(hostids = servidor["hostid"])
+            events = ZabAPI.event.get(hostids = servidor["hostid"])
+            server = Servidor(servidor, items , graphs, events)
+            servidores.append(server)
+    return servidores
 

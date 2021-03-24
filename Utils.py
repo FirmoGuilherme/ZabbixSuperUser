@@ -1,12 +1,12 @@
 from json import load, dump
-from datetime import datetime
 from pyzabbix import ZabbixAPI
-from time import time
+from time import mktime
 from requests import get, post
 from io import BytesIO
 from PIL.Image import open as readBytes
 from platform import system as SYS
 from urllib.parse import urlencode
+from datetime import date, timedelta, datetime
 
 
 class errorHandler(Exception):
@@ -38,7 +38,6 @@ def getZabbixAPI():
     Auth = __readAuth()
     API = ZabbixAPI(Auth["Url"])
     API.login(Auth["User"], Auth["Password"])
-    
     return API
 
 def getImage(url, zbxsessID, phpsessID):
@@ -92,7 +91,8 @@ def removeInvalidChar(name):
         ">",
         "|",
         "%",
-        "*"
+        "*",
+        "-"
     ]
     filtered = name
     for word in words_blacklist:
@@ -107,9 +107,58 @@ def removeInvalidChar(name):
         filtered = filtered[0:-1]
     return filtered
 
-def getTime(function):
-    print("STAR TIME")
-    start = time()
-    function()
-    end = time()
-    print(end - start)
+def getDate():
+    lastDay = (date.today().replace(day=1) - timedelta(days=1)).strftime("%Y%m%d")
+    firstDay = lastDay[0:-2] + "01"
+    lastDay = datetime(int(lastDay[0:4]), int(lastDay[4:6]), int(lastDay[6:]), 23 ,59 ,59)
+    firstDay = datetime(int(firstDay[0:4]), int(firstDay[4:6]), int(firstDay[6:]))
+    lastDay = int(mktime(lastDay.timetuple()))
+    firstDay = int(mktime(firstDay.timetuple()))
+    return firstDay, lastDay
+
+def __convertBytes(Bytes):
+    Bytes = float(Bytes)
+    KB = float(1024)
+    MB = float(KB ** 2) # 1,048,576
+    GB = float(KB ** 3) # 1,073,741,824
+    TB = float(KB ** 4) # 1,099,511,627,776
+
+    if Bytes < KB:
+        return '{0} {1}'.format(Bytes,'Bytes' if 0 == Bytes > 1 else 'Byte')
+    elif KB <= Bytes < MB:
+        return '{0:.2f} KB'.format(Bytes/KB)
+    elif MB <= Bytes < GB:
+        return '{0:.2f} MB'.format(Bytes/MB)
+    elif GB <= Bytes < TB:
+        return '{0:.2f} GB'.format(Bytes/GB)
+    elif TB <= Bytes:
+        return '{0:.2f} TB'.format(Bytes/TB)
+
+def translateBytes(obj, name):
+    whitelist = [
+        "disk",
+        "memory",
+        "swap",
+        "tamanho"
+    ]
+    allValues = []
+    
+    if any(x.lower() in whitelist for x in name.split()) and "percentage" not in name and "%" not in name and "Percentual" not in name:
+        values = [data["value"] for data in obj.history]
+        values.sort()
+        for value in values:
+            allValues.append(__convertBytes(value))
+        return allValues, __convertBytes(obj.max), __convertBytes(obj.min) , __convertBytes(obj.average)
+    else:
+        return obj.allValues, obj.max, obj.min, obj.average
+
+def convertTimeFromUnix(time):
+    clocks = []
+    for value in time:
+        clocks.append(datetime.utcfromtimestamp(int(value)))
+    return clocks
+
+if __name__ == "__main__":
+    time = 1614567599
+    time = convertTimeFromUnix(time)
+    print(time)

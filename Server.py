@@ -1,12 +1,13 @@
-from Utils import getZabbixAPI, removeInvalidChar, getImage, getBar, getSessID, toJSON
-from time import mktime
+from Utils import getZabbixAPI, removeInvalidChar, getImage, getBar, getSessID, toJSON, getDate, translateBytes, convertTimeFromUnix
+from shutil import move
 from json import dump
-from datetime import datetime
+from os import listdir
+import matplotlib.pyplot as plt
+
 
 ZabAPI = getZabbixAPI()
 zabbixSessionID, phpSessionID = getSessID()
-time_end = int(mktime(datetime.now().timetuple()))
-time_start = time_end - 60 * 60 * 24 * 31
+time_start, time_end = getDate()
 
 
 class Item():
@@ -260,7 +261,10 @@ class Graph():
         """
 
     def getGraphImage(self):
-        self.image = getImage(url = "http://guardiao.workdb.com.br/chart2.php?graphid={}&from=now-1M%2FM&to=now-1M%2FM&profileIdx=web.graphs.filter&profileIdx2={}=um5etv25&screenid=".format(self.graphid, self.graphid),zbxsessID=zabbixSessionID, phpsessID = phpSessionID )
+        if "Disk" not in self.name and "Swap" not in self.name:
+            self.image = getImage(url = "http://guardiao.workdb.com.br/chart2.php?graphid={}&from=now-1M%2FM&to=now-1M%2FM&profileIdx=web.graphs.filter&profileIdx2={}=um5etv25&screenid=".format(self.graphid, self.graphid),zbxsessID=zabbixSessionID, phpsessID = phpSessionID)
+        else:
+            self.image = getImage(url = "http://guardiao.workdb.com.br/chart2.php?graphid={}&from=now-1h&to=now&profileIdx=web.graphs.filter&profileIdx2={}&width=2172&height=341&_=uqe1pp5c".format(self.graphid, self.graphid),zbxsessID=zabbixSessionID, phpsessID = phpSessionID)
         return self.image
 
     def getItems(self):
@@ -313,17 +317,31 @@ class GraphItem():
     def __init__(self, raw_data):
         for attribute in raw_data.keys():
             setattr(self, attribute, raw_data[attribute])
+        """
+            gitemid
+            graphid
+            itemid
+            drawtype
+            sortorder
+            color
+            yaxisside
+            calc_fnc
+            type
+            max
+            min
+            average
+        """
         
-
     def historyFilter(self):
-        history = [int(hist["value"]) for hist in ZabAPI.history.get(itemids = self.itemid, time_from=time_start, time_till=time_end, output='extend', limit='10000000') if len(hist) > 0]
-        if self.itemid == "34273":
-            print(history)
-        if len(history) == 0: return False
+        self.allValues = []
+        self.history = [hist for hist in ZabAPI.history.get(itemids = self.itemid, time_from=time_start, time_till=time_end, output='extend', limit='10000000')]
+        if not len(self.history):
+            self.history = [hist for hist in ZabAPI.history.get(itemids = self.itemid, time_from=time_start, time_till=time_end, output='extend', limit='10000000', history = 0)]
+        if len(self.history) == 0: return False
         else:
-            self.max = max(history)
-            self.min = min(history)
-            self.average = (sum(history) / len(history))
+            self.max = max([float(value["value"]) for value in self.history])
+            self.min = min([float(value["value"]) for value in self.history])
+            self.average = (sum([float(value["value"]) for value in self.history]) / len([float(value["value"]) for value in self.history]))
             return True
         
 class Event():
@@ -402,7 +420,6 @@ class Event():
             }
         }
         setattr(self, attribute, translations[attribute][int(value)])
-
 
 class Servidor():
 
@@ -574,6 +591,7 @@ class Servidor():
 
     def getValues(self):
         barra = getBar()
+        self.graphItem = {}
         for graph in self.graphs:
             mydict = {}
             name = removeInvalidChar(graph.name)
@@ -582,49 +600,56 @@ class Servidor():
                 graphItemOBJ = GraphItem(item)
                 hasHistory = graphItemOBJ.historyFilter()
                 if hasHistory:
-                    itemName = [item.name for item in self.items if item.itemid == graphItemOBJ.itemid][0]
-                    mydict[itemName] = {}
-                    for att, value in zip(graphItemOBJ.__dict__, graphItemOBJ.__dict__.values()):
-                         mydict[itemName][att] = value
-            with open(f"Servers{barra}{self.host}{barra}Graphs{barra}{name} - Values.json", "w") as json:
+                    try:
+                        itemName = [item.name for item in self.items if item.itemid == graphItemOBJ.itemid][0]
+                        graphItemOBJ.allValues, graphItemOBJ.max, graphItemOBJ.min, graphItemOBJ.average = translateBytes(graphItemOBJ, itemName)
+                        if graphItemOBJ.graphid not in self.graphItem.keys():
+                            self.graphItem[graphItemOBJ.graphid] = [graphItemOBJ]
+                        else:
+                            self.graphItem[graphItemOBJ.graphid].append(graphItemOBJ)
+                        mydict[itemName] = {}
+                        for att, value in zip(graphItemOBJ.__dict__, graphItemOBJ.__dict__.values()):
+                            mydict[itemName][att] = value
+                    except IndexError: pass
+            with open(f"Servidores{barra}{self.host}{barra}Graphs{barra}{name} - Values.json", "w") as json:
                 dump(mydict, json, indent=4)
                     
     def saveAll(self):
         from os import makedirs
         barra = getBar()
-        try: makedirs(f"Servers{barra}{self.host}{barra}Items{barra}Enabled")
+        try: makedirs(f"Servidores{barra}{self.host}{barra}Items{barra}Enabled")
         except FileExistsError: pass
-        try: makedirs(f"Servers{barra}{self.host}{barra}Items{barra}Disabled{barra}unSupported")
+        try: makedirs(f"Servidores{barra}{self.host}{barra}Items{barra}Disabled{barra}unSupported")
         except FileExistsError: pass
-        try: makedirs(f"Servers{barra}{self.host}{barra}Graphs")
+        try: makedirs(f"Servidores{barra}{self.host}{barra}Graphs")
         except FileExistsError: pass
-        try: makedirs(f"Servers{barra}{self.host}{barra}Events")
+        try: makedirs(f"Servidores{barra}{self.host}{barra}Events")
         except FileExistsError: pass
 
         ## Server Config
-        toJSON(self.__dict__, self.__dict__.values(), f"Servers{barra}{self.host}{barra}config.json")
+        toJSON(self.__dict__, self.__dict__.values(), f"Servidores{barra}{self.host}{barra}config.json")
 
         def items():
             for item in self.items:
                 name = removeInvalidChar(item.name)
                 if item.state == "not supported":
-                    toJSON(item.__dict__, item.__dict__.values(), f"Servers{barra}{self.host}{barra}Items{barra}Disabled{barra}unSupported{barra}{name}.json")
+                    toJSON(item.__dict__, item.__dict__.values(), f"Servidores{barra}{self.host}{barra}Items{barra}Disabled{barra}unSupported{barra}{name}.json")
                 elif item.status == "disabled item":
-                    toJSON(item.__dict__, item.__dict__.values(), f"Servers{barra}{self.host}{barra}Items{barra}Disabled{barra}{name}.json")
+                    toJSON(item.__dict__, item.__dict__.values(), f"Servidores{barra}{self.host}{barra}Items{barra}Disabled{barra}{name}.json")
                 else:
-                    toJSON(item.__dict__, item.__dict__.values(), f"Servers{barra}{self.host}{barra}Items{barra}Enabled{barra}{name}.json")
+                    toJSON(item.__dict__, item.__dict__.values(), f"Servidores{barra}{self.host}{barra}Items{barra}Enabled{barra}{name}.json")
 
         def graphs():
             for graph in self.graphs:
                 name = removeInvalidChar(graph.name)
                 img = graph.getGraphImage()
-                img.save(f"Servers{barra}{self.host}{barra}Graphs{barra}{name}.png")
-                toJSON(graph.__dict__, graph.__dict__.values(), f"Servers{barra}{self.host}{barra}Graphs{barra}{name}.json")
+                img.save(f"Servidores{barra}{self.host}{barra}Graphs{barra}{name}.png")
+                toJSON(graph.__dict__, graph.__dict__.values(), f"Servidores{barra}{self.host}{barra}Graphs{barra}{name}.json")
 
         def events():
             for event in self.events:
                 name = removeInvalidChar(event.name)
-                toJSON(event.__dict__, event.__dict__.values(), f"Servers{barra}{self.host}{barra}Events{barra}{name}.json")
+                toJSON(event.__dict__, event.__dict__.values(), f"Servidores{barra}{self.host}{barra}Events{barra}{name}.json")
 
         items()
         graphs()
@@ -638,42 +663,67 @@ class Servidor():
         items = []
         graphs = []
         events = []
-        with open(f"Servers{barra}{nome}{barra}config.json", "r") as Config:
+        with open(f"Servidores{barra}{nome}{barra}config.json", "r") as Config:
             data = load(Config)
             for attribute, value in zip(data.keys(), data.values()):
                 serverConfig[attribute] = value
         ## Items não suportados
-        for item in listdir(f"Servers{barra}{nome}{barra}Items{barra}Disabled{barra}unSupported"): 
-            with open(f"Servers{barra}{nome}{barra}Items{barra}Disabled{barra}unSupported{barra}{item}", "r") as json:
+        for item in listdir(f"Servidores{barra}{nome}{barra}Items{barra}Disabled{barra}unSupported"): 
+            with open(f"Servidores{barra}{nome}{barra}Items{barra}Disabled{barra}unSupported{barra}{item}", "r") as json:
                 data = load(json)
             items.append(data)
         ## Items desabilitados
-        for item in listdir(f"Servers{barra}{nome}{barra}Items{barra}Disabled"): 
+        for item in listdir(f"Servidores{barra}{nome}{barra}Items{barra}Disabled"): 
             if item != "unSupported":
-                with open(f"Servers{barra}{nome}{barra}Items{barra}Disabled{barra}{item}", "r") as json:
+                with open(f"Servidores{barra}{nome}{barra}Items{barra}Disabled{barra}{item}", "r") as json:
                     data = load(json)
                 items.append(data)
         ## Items habilitados
-        for item in listdir(f"Servers{barra}{nome}{barra}Items{barra}Enabled"): 
-            with open(f"Servers{barra}{nome}{barra}Items{barra}Enabled{barra}{item}", "r") as json:
+        for item in listdir(f"Servidores{barra}{nome}{barra}Items{barra}Enabled"): 
+            with open(f"Servidores{barra}{nome}{barra}Items{barra}Enabled{barra}{item}", "r") as json:
                 data = load(json)
             items.append(data)
 
         ## Gráficos
-        for graph in listdir(f"Servers{barra}{nome}{barra}Graphs"): 
-            with open(f"Servers{barra}{nome}{barra}Graphs{barra}{graph}", "r") as json:
-                data = load(json)
-            graphs.append(data)
+        for graph in listdir(f"Servidores{barra}{nome}{barra}Graphs"):
+            if graph.endswith("json") and "Values" not in graph: 
+                with open(f"Servidores{barra}{nome}{barra}Graphs{barra}{graph}", "r") as json:
+                    data = load(json)
+                graphs.append(data)
 
         ## Eventos
-        for event in listdir(f"Servers{barra}{nome}{barra}Events"): 
-            with open(f"Servers{barra}{nome}{barra}Events{barra}{event}", "r") as json:
+        for event in listdir(f"Servidores{barra}{nome}{barra}Events"): 
+            with open(f"Servidores{barra}{nome}{barra}Events{barra}{event}", "r") as json:
                 data = load(json)
             events.append(data)
 
         return serverConfig, items, graphs, events
 
+    def gerarRelatorio(self):
+        for graphGroup, graphItems in zip(self.graphItem, self.graphItem.values()):
+            if graphGroup == "6465":
+                for graphItem in graphItems:
+                    yAxis = []
+                    xAxis = []
+                    graph = [graph for graph in self.graphs if int(graph.graphid) == int(graphGroup)][0]
+                    graphName = graph.name
+                    lineName = [item.name for item in self.items if item.itemid == graphItem.itemid][0]
+                    xAxisAll = convertTimeFromUnix([f["clock"] for f in graphItem.history])
+                    yAxisAll = graphItem.allValues
+                    for value, count in zip(yAxisAll, range(len(yAxisAll))):
+                        if count % 50 == 0:
+                            yAxis.append(value)
+                    for value, count in zip(xAxisAll, range(len(xAxisAll))):
+                        if count % 50 == 0:
+                            xAxis.append(value)
+                    plt.plot(xAxisAll, yAxisAll, label=lineName)
+                    plt.title(graphName)
+                    plt.legend()
+                plt.savefig("teste.png")
+            else: pass 
+                
 
+        #move(f"Modelos/{self.host}/_Model.docx", f"Servidores/{self.host}/Graphs/_Model.docx")
 
 def genServers(id):
     servidores = []
@@ -695,3 +745,15 @@ def genServers(id):
             servidores.append(server)
     return servidores
 
+def getAllServers():
+    return [servidor for servidor in ZabAPI.host.get(output="extend")]
+
+def readServers():
+    servidores = []
+    try:
+        for server in listdir("Servidores"):
+            print(f"Reading object {server}")
+            serverConfig, items, graphs, events = Servidor.readFromFile(server)
+            servidores.append(Servidor(serverConfig, items, graphs, events))
+    except FileNotFoundError: pass
+    return servidores

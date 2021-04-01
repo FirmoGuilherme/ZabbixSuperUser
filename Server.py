@@ -1,8 +1,7 @@
 from Utils import getZabbixAPI, removeInvalidChar, getImage, getBar, getSessID, toJSON, getDate, translateBytes, convertTimeFromUnix
-from shutil import move
+from shutil import copy
 from json import dump
 from os import listdir
-import matplotlib.pyplot as plt
 
 
 ZabAPI = getZabbixAPI()
@@ -723,12 +722,12 @@ class Servidor():
                     plt.savefig("teste.png")
                 else: pass 
         else:
-            print("Movendo Modelo")
             try:
-                move(f"Modelos/{self.host}/_Model.docx", f"Servidores/{self.host}/Graphs/_Model.docx")
+                copy(f"Modelos/{self.host}/_Model.docx", f"Servidores/{self.host}/Graphs/_Model.docx")
             except FileNotFoundError:
                 print("\n\n")
-                print(f"Arquivo modelo  {self.host} não encontrado!")
+                print(f"Arquivo modelo {self.host} não encontrado!")
+                print("\n\n")
 
 def genServers(id):
     servidores = []

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*- 
 from Server import genServers, readServers, getAllServers
 from pandas import read_excel
+from os import system
 
 
 class Zabbix():
@@ -50,35 +51,51 @@ class Zabbix():
             elif server.name == name:
                 return server
 
-    def gerarRelatorios(self):
-        whitelist = []
-        servidoresRelatorios = []
-        data = read_excel("Relação Clientes Monitoramento Relatório.xlsx", sheet_name = "Clientes WorkDB")["Gerar Relatórios de"]
-        for row in data:
-            try:
-                [whitelist.append(server) for server in row.split(",")]
-            except AttributeError:
-                pass
-        for server in whitelist:
-            try:
-                id = [servidor["hostid"] for servidor in getAllServers() if servidor["host"] == server][0]
-                self.setServers(id = id)
-                self.serversToJSON(id = id)
-                #self.getItemValues(id = id)
-                servidorObj = self.__searchServer(id)
-                servidorObj.gerarRelatorio()
-            except IndexError:
-                print("\n\n")
-                print(f"Erro no nome {server}")
-                print("\n\n")
+    def gerarRelatorios(self, nome = False):
+        if not nome:
+            whitelist = []
+            servidoresRelatorios = []
+            data = read_excel("Relação Clientes Monitoramento Relatório.xlsx", sheet_name = "Clientes WorkDB")["Gerar Relatórios de"]
+            for row in data:
+                try:
+                    [whitelist.append(server) for server in row.split(",")]
+                except AttributeError:
+                    pass
+            for server in whitelist:
+                try:
+                    id = [servidor["hostid"] for servidor in getAllServers() if servidor["host"] == server][0]
+                    self.setServers(id = id)
+                    self.serversToJSON(id = id)
+                    #self.getItemValues(id = id)
+                    servidorObj = self.__searchServer(id)
+                    servidorObj.gerarRelatorio()
+                except IndexError:
+                    print("\n\n")
+                    print(f"Erro no nome {server}")
+                    print("\n\n")
+        else:
+            id = [servidor["hostid"] for servidor in getAllServers() if servidor["host"] == nome.upper()][0]
+            self.setServers(id = id)
+            self.serversToJSON(id = id)
+            servidorObj = self.__searchServer(id)
+            servidorObj.gerarRelatorio()
 
-
+def printMenu():
+    print("1 - Gerar todos os relatórios")
+    print("2 - Gerar relatório de servidor específico")
+    opc = int(input())
+    return opc
 
 if __name__ == "__main__":
     zab = Zabbix()
-    zab.gerarRelatorios()
-    #zab.readServers()
-    #zab.getItemValues()
+    while True:
+        opc = printMenu()
+        if opc == 1:
+            zab.gerarRelatorios()
+        elif opc == 2:
+            nome = input("Insira o nome do servidor\n")
+            zab.gerarRelatorios(nome = nome)
+
         
     
     

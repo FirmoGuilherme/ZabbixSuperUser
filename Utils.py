@@ -9,6 +9,24 @@ from urllib.parse import urlencode
 from datetime import date, timedelta, datetime
 
 
+CookiesAndHeaders = {
+        "Cookies": {
+            "PHPSESSID": "",
+            "zbx_sessionid": ""
+        },
+        "Headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:87.0) Gecko/20100101 Firefox/87.0",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "pt-BR,pt;q=0.8,en-US;q=0.5,en;q=0.3",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Origin": "http://guardiao.workdb.com.br",
+            "Connection": "keep-alive",
+            "Referer": "http://guardiao.workdb.com.br/index.php",
+            "Upgrade-Insecure-Requests": "1"
+        }
+    }
+
+
 class errorHandler(Exception):
 
     def __init__(self, error):
@@ -25,9 +43,7 @@ def __readAuth():
     try:
         with open("auth.json", "r") as json:
             info = load(json)
-            json_values["Url"] = info["Website"]["Url"]
-            json_values["Cookies"] = info["Website"]["Cookies"]
-            json_values["Headers"] = info["Website"]["Headers"]
+            json_values["Url"] = info["API"]["URL"]
             json_values["User"] = info["API"]["Username"]
             json_values["Password"] = info["API"]["Password"]
         return json_values
@@ -41,10 +57,9 @@ def getZabbixAPI():
     return API
 
 def getImage(url, zbxsessID, phpsessID):
-    Auth = __readAuth()
-    Auth["Cookies"]["PHPSESSID"] = phpsessID
-    Auth["Cookies"]["zbx_sessionid"] = zbxsessID
-    response = get(url, cookies=Auth["Cookies"], headers=Auth["Headers"], verify=False)
+    CookiesAndHeaders["Cookies"]["PHPSESSID"] = phpsessID
+    CookiesAndHeaders["Cookies"]["zbx_sessionid"] = zbxsessID
+    response = get(url, cookies=CookiesAndHeaders["Cookies"], headers=CookiesAndHeaders["Headers"], verify=False)
     bytes = BytesIO(response.content)
     img = readBytes(bytes)
     return img

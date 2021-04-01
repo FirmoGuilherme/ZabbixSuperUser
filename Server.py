@@ -699,31 +699,31 @@ class Servidor():
 
         return serverConfig, items, graphs, events
 
-    def gerarRelatorio(self):
-        for graphGroup, graphItems in zip(self.graphItem, self.graphItem.values()):
-            if graphGroup == "6465":
-                for graphItem in graphItems:
-                    yAxis = []
-                    xAxis = []
-                    graph = [graph for graph in self.graphs if int(graph.graphid) == int(graphGroup)][0]
-                    graphName = graph.name
-                    lineName = [item.name for item in self.items if item.itemid == graphItem.itemid][0]
-                    xAxisAll = convertTimeFromUnix([f["clock"] for f in graphItem.history])
-                    yAxisAll = graphItem.allValues
-                    for value, count in zip(yAxisAll, range(len(yAxisAll))):
-                        if count % 50 == 0:
-                            yAxis.append(value)
-                    for value, count in zip(xAxisAll, range(len(xAxisAll))):
-                        if count % 50 == 0:
-                            xAxis.append(value)
-                    plt.plot(xAxisAll, yAxisAll, label=lineName)
-                    plt.title(graphName)
-                    plt.legend()
-                plt.savefig("teste.png")
-            else: pass 
-                
-
-        #move(f"Modelos/{self.host}/_Model.docx", f"Servidores/{self.host}/Graphs/_Model.docx")
+    def gerarRelatorio(self, debug = False):
+        if debug:
+            for graphGroup, graphItems in zip(self.graphItem, self.graphItem.values()):
+                if graphGroup == "6465":
+                    for graphItem in graphItems:
+                        yAxis = []
+                        xAxis = []
+                        graph = [graph for graph in self.graphs if int(graph.graphid) == int(graphGroup)][0]
+                        graphName = graph.name
+                        lineName = [item.name for item in self.items if item.itemid == graphItem.itemid][0]
+                        xAxisAll = convertTimeFromUnix([f["clock"] for f in graphItem.history])
+                        yAxisAll = graphItem.allValues
+                        for value, count in zip(yAxisAll, range(len(yAxisAll))):
+                            if count % 50 == 0:
+                                yAxis.append(value)
+                        for value, count in zip(xAxisAll, range(len(xAxisAll))):
+                            if count % 50 == 0:
+                                xAxis.append(value)
+                        plt.plot(xAxisAll, yAxisAll, label=lineName)
+                        plt.title(graphName)
+                        plt.legend()
+                    plt.savefig("teste.png")
+                else: pass 
+        else:
+            move(f"Modelos/{self.host}/_Model.docx", f"Servidores/{self.host}/Graphs/_Model.docx")
 
 def genServers(id):
     servidores = []

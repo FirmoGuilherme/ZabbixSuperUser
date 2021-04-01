@@ -62,8 +62,8 @@ class Zabbix():
         for server in whitelist:
             id = [servidor["hostid"] for servidor in getAllServers() if servidor["host"] == server][0]
             self.setServers(id = id)
-            #self.serversToJSON(id = id)
-            self.getItemValues(id = id)
+            self.serversToJSON(id = id)
+            #self.getItemValues(id = id)
             servidoresRelatorios.append(self.__searchServer(id))
 
         for servidorObj in servidoresRelatorios:
@@ -73,11 +73,9 @@ class Zabbix():
 
 if __name__ == "__main__":
     zab = Zabbix()
-    #zab.setServers(10306)
-    #zab.serversToJSON()
+    zab.gerarRelatorios()
     #zab.readServers()
     #zab.getItemValues()
-    zab.gerarRelatorios()
         
     
     

@@ -60,14 +60,17 @@ class Zabbix():
             except AttributeError:
                 pass
         for server in whitelist:
-            id = [servidor["hostid"] for servidor in getAllServers() if servidor["host"] == server][0]
-            self.setServers(id = id)
-            self.serversToJSON(id = id)
-            #self.getItemValues(id = id)
-            servidoresRelatorios.append(self.__searchServer(id))
-
-        for servidorObj in servidoresRelatorios:
-            servidorObj.gerarRelatorio()
+            try:
+                id = [servidor["hostid"] for servidor in getAllServers() if servidor["host"] == server][0]
+                self.setServers(id = id)
+                self.serversToJSON(id = id)
+                #self.getItemValues(id = id)
+                servidorObj = self.__searchServer(id)
+                servidorObj.gerarRelatorio()
+            except IndexError:
+                print("\n\n")
+                print(f"Erro no nome {server}")
+                print("\n\n")
 
 
 

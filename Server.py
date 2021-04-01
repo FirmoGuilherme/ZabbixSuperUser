@@ -264,7 +264,7 @@ class Graph():
         if "Disk" not in self.name and "Swap" not in self.name:
             self.image = getImage(url = "http://guardiao.workdb.com.br/chart2.php?graphid={}&from=now-1M%2FM&to=now-1M%2FM&profileIdx=web.graphs.filter&profileIdx2={}=um5etv25&screenid=".format(self.graphid, self.graphid),zbxsessID=zabbixSessionID, phpsessID = phpSessionID)
         else:
-            self.image = getImage(url = "http://guardiao.workdb.com.br/chart2.php?graphid={}&from=now-1h&to=now&profileIdx=web.graphs.filter&profileIdx2={}&width=2172&height=341&_=uqe1pp5c".format(self.graphid, self.graphid),zbxsessID=zabbixSessionID, phpsessID = phpSessionID)
+            self.image = getImage(url = "http://guardiao.workdb.com.br/chart2.php?graphid={}&from=now-1M%2FM&to=now-1M%2FM&profileIdx=web.graphs.filter&profileIdx2={}&width=1274&height=280&_=um5ge3fh&screenid=".format(self.graphid, self.graphid),zbxsessID=zabbixSessionID, phpsessID = phpSessionID)
         return self.image
 
     def getItems(self):
@@ -723,7 +723,12 @@ class Servidor():
                     plt.savefig("teste.png")
                 else: pass 
         else:
-            move(f"Modelos/{self.host}/_Model.docx", f"Servidores/{self.host}/Graphs/_Model.docx")
+            print("Movendo Modelo")
+            try:
+                move(f"Modelos/{self.host}/_Model.docx", f"Servidores/{self.host}/Graphs/_Model.docx")
+            except FileNotFoundError:
+                print("\n\n")
+                print(f"Arquivo modelo  {self.host} não encontrado!")
 
 def genServers(id):
     servidores = []

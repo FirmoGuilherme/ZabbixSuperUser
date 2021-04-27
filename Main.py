@@ -2,6 +2,19 @@
 # -*- coding: utf-8 -*- 
 from src.Server import genServers, readServers, getAllServers
 from pandas import read_excel
+from shutil import copyfile
+from os import mkdir, listdir
+
+
+def moverModelos():
+    mkdir("ModelosNovos")
+    for server in listdir("Servidores"):
+        mkdir(r"ModelosNovos\{}".format(server))
+        print(f"Movendo modelo {server}")
+        try:
+            copyfile(r"Servidores\{}\Graphs\_Model.docx".format(server), r"ModelosNovos\{}\_Model.docx".format(server))
+        except FileNotFoundError:
+            pass
 
 class Zabbix():
 
@@ -71,6 +84,7 @@ class Zabbix():
 def printMenu():
     print("1 - Gerar todos os relatórios")
     print("2 - Gerar relatório de servidor específico")
+    print("3 - Mover modelos para novo folder")
     opc = int(input())
     return opc
 
@@ -83,3 +97,5 @@ if __name__ == "__main__":
         elif opc == 2:
             nome = input("Insira o nome do servidor\n").upper()
             zab.gerarRelatorios(nome = nome)
+        elif opc == 3:
+            moverModelos()

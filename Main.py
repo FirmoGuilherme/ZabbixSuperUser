@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*- 
-from src.Server import genServers, readServers, getAllServers
+from src.Server import genServers, getAllServers
 from pandas import read_excel
 from shutil import copyfile
 from os import mkdir, listdir
@@ -12,7 +12,7 @@ def moverModelos():
         mkdir(r"ModelosNovos\{}".format(server))
         print(f"Movendo modelo {server}")
         try:
-            copyfile(r"Servidores\{}\Graphs\_Model.docx".format(server), r"ModelosNovos\{}\_Model.docx".format(server))
+            copyfile(r"Servidores\{}\Graphs\_{}.docx".format(server, server), r"ModelosNovos\{}\_{}.docx".format(server, server))
         except FileNotFoundError:
             pass
 

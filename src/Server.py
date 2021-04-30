@@ -318,7 +318,7 @@ class Servidor():
                 else: pass 
         else:
             try:
-                copy(f"Modelos/{self.host}/_Model.docx", f"Servidores/{self.host}/Graphs/_Model.docx")
+                copy(f"Modelos/{self.host}/_{self.host}.docx", f"Servidores/{self.host}/Graphs/_{self.host}.docx")
             except FileNotFoundError:
                 print("\n\n")
                 print(f"Arquivo modelo {self.host} não encontrado!")

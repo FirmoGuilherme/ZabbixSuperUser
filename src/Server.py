@@ -3,7 +3,7 @@ from json import dump
 from os import listdir
 
 ## Custom Imports
-from src.Utils import getZabbixAPI, removeInvalidChar, getSessID, toJSON, getDate, translateBytes, convertTimeFromUnix
+from src.Utils import getZabbixAPI, removeInvalidChar, getSessID, toJSON, getDate, translateBytes, loadJson
 from src.Event import Event
 from src.Item import Item
 from src.GraphItem import GraphItem
@@ -249,80 +249,53 @@ class Servidor():
         items()
         graphs()
         events()
+    
+    def gerarRelatorio(self):
+        try:
+            copy(f"Modelos/{self.host}/_{self.host}.docx", f"Servidores/{self.host}/Graphs/_{self.host}.docx")
+        except FileNotFoundError:
+            print("\n\n")
+            print(f"Arquivo modelo {self.host} não encontrado!")
+            print("\n\n")
 
-    def readFromFile(nome):
-        from json import load
-        from os import listdir
-        serverConfig = {}
-        items = []
-        graphs = []
-        events = []
-        with open(f"Servidores\{nome}\config.json", "r") as Config:
-            data = load(Config)
-            for attribute, value in zip(data.keys(), data.values()):
-                serverConfig[attribute] = value
-        ## Items não suportados
-        for item in listdir(f"Servidores\\{nome}\\Items\\Disabled\\unSupported"): 
-            with open(f"Servidores\\{nome}\\Items\\Disabled\\unSupported\\{item}", "r") as json:
-                data = load(json)
-            items.append(data)
-        ## Items desabilitados
-        for item in listdir(f"Servidores\{nome}\Items\Disabled"): 
-            if item != "unSupported":
-                with open(f"Servidores\{nome}\Items\Disabled\{item}", "r") as json:
-                    data = load(json)
-                items.append(data)
-        ## Items habilitados
-        for item in listdir(f"Servidores\{nome}\Items\Enabled"): 
-            with open(f"Servidores\{nome}\Items\Enabled\{item}", "r") as json:
-                data = load(json)
-            items.append(data)
 
-        ## Gráficos
-        for graph in listdir(f"Servidores\{nome}\Graphs"):
-            if graph.endswith("json") and "Values" not in graph: 
-                with open(f"Servidores\{nome}\Graphs\{graph}", "r") as json:
-                    data = load(json)
-                graphs.append(data)
+def readFromFile(nome):
+    from json import load
+    from os import listdir
+    serverConfig = {}
+    items = []
+    graphs = []
+    events = []
+    with open(f"Servidores\{nome}\config.json", "r") as Config:
+        data = load(Config)
+        for attribute, value in zip(data.keys(), data.values()):
+            serverConfig[attribute] = value
 
-        ## Eventos
-        for event in listdir(f"Servidores\{nome}\Events"): 
-            with open(f"Servidores\{nome}\Events\{event}", "r") as json:
-                data = load(json)
-            events.append(data)
 
-        return serverConfig, items, graphs, events
+    ## Items não suportados
+    for item in listdir(f"Servidores\\{nome}\\Items\\Disabled\\unSupported"): 
+        items.append(loadJson(f"Servidores\\{nome}\\Items\\Disabled\\unSupported\\{item}"))
+    ## Items desabilitados
+    for item in [item for item in listdir(f"Servidores\{nome}\Items\Disabled") if item != "unSupported"]: 
+        items.append(loadJson(f"Servidores\{nome}\Items\Disabled\{item}"))
+    ## Items habilitados
+    for item in listdir(f"Servidores\{nome}\Items\Enabled"): 
+        items.append(loadJson(f"Servidores\{nome}\Items\Enabled\{item}"))
 
-    def gerarRelatorio(self, debug = False):
-        if debug:
-            for graphGroup, graphItems in zip(self.graphItem, self.graphItem.values()):
-                if graphGroup == "6465":
-                    for graphItem in graphItems:
-                        yAxis = []
-                        xAxis = []
-                        graph = [graph for graph in self.graphs if int(graph.graphid) == int(graphGroup)][0]
-                        graphName = graph.name
-                        lineName = [item.name for item in self.items if item.itemid == graphItem.itemid][0]
-                        xAxisAll = convertTimeFromUnix([f["clock"] for f in graphItem.history])
-                        yAxisAll = graphItem.allValues
-                        for value, count in zip(yAxisAll, range(len(yAxisAll))):
-                            if count % 50 == 0:
-                                yAxis.append(value)
-                        for value, count in zip(xAxisAll, range(len(xAxisAll))):
-                            if count % 50 == 0:
-                                xAxis.append(value)
-                        plt.plot(xAxisAll, yAxisAll, label=lineName)
-                        plt.title(graphName)
-                        plt.legend()
-                    plt.savefig("teste.png")
-                else: pass 
-        else:
-            try:
-                copy(f"Modelos/{self.host}/_{self.host}.docx", f"Servidores/{self.host}/Graphs/_{self.host}.docx")
-            except FileNotFoundError:
-                print("\n\n")
-                print(f"Arquivo modelo {self.host} não encontrado!")
-                print("\n\n")
+
+    ## Gráficos
+    for graph in [graph for graph in listdir(f"Servidores\{nome}\Graphs") if graph.endswith("json") and "Values" not in graph]:
+        graphs.append(loadJson(f"Servidores\{nome}\Graphs\{graph}"))
+
+
+    ## Eventos
+    for event in listdir(f"Servidores\{nome}\Events"): 
+        events.append(loadJson(f"Servidores\{nome}\Events\{event}"))
+
+    return serverConfig, items, graphs, events
+
+
+
 
 def genServers(id):
     servidores = []
@@ -335,14 +308,15 @@ def genServers(id):
             server = Servidor(servidor, items , graphs, events)
             servidores.append(server)
     else:
-        for servidor in ZabAPI.host.get(hostids=id, output="extend"):
-            print("Creating object %s"% servidor["host"])
-            items = ZabAPI.item.get(hostids = servidor["hostid"])
-            graphs = ZabAPI.graph.get(hostids = servidor["hostid"])
-            events = ZabAPI.event.get(hostids = servidor["hostid"])
-            server = Servidor(servidor, items , graphs, events)
-            servidores.append(server)
+        servidor = ZabAPI.host.get(hostids=id, output="extend")[0]
+        print("Creating object %s"% servidor["host"])
+        items = ZabAPI.item.get(hostids = servidor["hostid"])
+        graphs = ZabAPI.graph.get(hostids = servidor["hostid"])
+        events = ZabAPI.event.get(hostids = servidor["hostid"])
+        server = Servidor(servidor, items , graphs, events)
+        servidores.append(server)
     return servidores
+
 
 def getAllServers():
     return [servidor for servidor in ZabAPI.host.get(output="extend")]
@@ -352,7 +326,8 @@ def readServers():
     try:
         for server in listdir("Servidores"):
             print(f"Reading object {server}")
-            serverConfig, items, graphs, events = Servidor.readFromFile(server)
-            servidores.append(Servidor(serverConfig, items, graphs, events))
+            serverConfig, items, graphs, events = readFromFile(server)
+            serv = Servidor(serverConfig, items, graphs, events)
+            servidores.append(serv)
     except FileNotFoundError: pass
     return servidores

@@ -7,6 +7,7 @@ from PIL.Image import open as readBytes
 from platform import system as SYS
 from urllib.parse import urlencode
 from datetime import date, timedelta, datetime
+from json import load
 
 
 
@@ -39,7 +40,12 @@ class errorHandler(Exception):
             phrase = f"\n{datetime.now()}"
             phrase += "\nArquivo auth.json não encontrado!"
         super().__init__(phrase)
-        
+
+def loadJson(file):
+    with open(file, "r") as json:
+        return load(json)
+
+
 def __readAuth():
     """
         {
@@ -112,7 +118,8 @@ def removeInvalidChar(name):
         ">",
         "|",
         "%",
-        "*"
+        "*",
+        "-"
     ]
     filtered = name
     for word in words_blacklist:

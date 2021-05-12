@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*- 
-from src.Server import genServers, getAllServers
+from src.Server import genServers, getAllServers, readServers
 from pandas import read_excel
 from shutil import copyfile
 from os import mkdir, listdir
@@ -52,6 +52,11 @@ class Zabbix():
             serverObj = self.getServer(id)
             serverObj.getValues()
 
+    def readFromFile(self):
+        servidores = readServers()
+        for server in servidores:
+            self.servidores[server.host] = server
+
     def gerarRelatorios(self, nome = False):
         if not nome:
             whitelist = []
@@ -80,7 +85,7 @@ class Zabbix():
             self.serversToJSON(name = name)
             servidorObj = self.getServer(name)
             servidorObj.gerarRelatorio()
-
+    
 def printMenu():
     print("1 - Gerar todos os relatórios")
     print("2 - Gerar relatório de servidor específico")
@@ -90,6 +95,7 @@ def printMenu():
 
 if __name__ == "__main__":
     zab = Zabbix()
+    zab.readFromFile()
     while True:
         opc = printMenu()
         if opc == 1:

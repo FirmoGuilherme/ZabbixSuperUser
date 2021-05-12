@@ -1,6 +1,5 @@
-from Utils import getZabbixAPI, removeInvalidChar, getSessID
+from Utils import getZabbixAPI, getSessID
 from json import dump
-from time import sleep
 
 ZabAPI = getZabbixAPI()
 zabbixSessionID, phpSessionID = getSessID()

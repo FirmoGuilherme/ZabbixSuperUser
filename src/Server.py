@@ -253,10 +253,9 @@ class Servidor():
     def gerarRelatorio(self):
         try:
             copy(f"Modelos/{self.host}/_{self.host}.docx", f"Servidores/{self.host}/Graphs/_{self.host}.docx")
+            return True
         except FileNotFoundError:
-            print("\n\n")
-            print(f"Arquivo modelo {self.host} não encontrado!")
-            print("\n\n")
+            return False
 
 
 def readFromFile(nome):
@@ -301,7 +300,7 @@ def genServers(id):
     servidores = []
     if not id: 
         for servidor in ZabAPI.host.get(output="extend"):
-            print("Creating object %s"% servidor["host"])
+            #print("Creating object %s"% servidor["host"])
             items = ZabAPI.item.get(hostids = servidor["hostid"])
             graphs = ZabAPI.graph.get(hostids = servidor["hostid"])
             events = ZabAPI.event.get(hostids = servidor["hostid"])
@@ -309,7 +308,7 @@ def genServers(id):
             servidores.append(server)
     else:
         servidor = ZabAPI.host.get(hostids=id, output="extend")[0]
-        print("Creating object %s"% servidor["host"])
+        #print("Creating object %s"% servidor["host"])
         items = ZabAPI.item.get(hostids = servidor["hostid"])
         graphs = ZabAPI.graph.get(hostids = servidor["hostid"])
         events = ZabAPI.event.get(hostids = servidor["hostid"])
@@ -325,7 +324,6 @@ def readServers():
     servidores = []
     try:
         for server in listdir("Servidores"):
-            print(f"Reading object {server}")
             serverConfig, items, graphs, events = readFromFile(server)
             serv = Servidor(serverConfig, items, graphs, events)
             servidores.append(serv)

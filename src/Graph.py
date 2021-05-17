@@ -16,8 +16,10 @@ class Graph():
             ]
         for attribute in raw_data.keys():
             setattr(self, attribute, raw_data[attribute])
-            if attribute not in blacklist and raw_data[attribute].isnumeric():
-                self.__translateNumeric(attribute, raw_data[attribute])
+            try:
+                if raw_data[attribute].isnumeric():
+                    self.__translateNumeric(attribute, raw_data[attribute])
+            except AttributeError: pass
         
         """
             graphid
@@ -93,5 +95,5 @@ class Graph():
                 2: "item"
             }
         }
-        setattr(self, attribute, translations[attribute][int(value)])
-  
+        try: setattr(self, attribute, translations[attribute][int(value)])
+        except KeyError: pass

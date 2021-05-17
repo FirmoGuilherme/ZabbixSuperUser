@@ -19,30 +19,13 @@ time_start, time_end = getDate()
 class Servidor():
 
     def __init__(self, raw_data, items, graphs, events):
-        blacklist = [
-            "hostid",
-            "proxy_hostid",
-            "disable_until",
-            "errors_from",
-            "lastaccess",
-            "ipmi_disable_until",
-            "snmp_disable_until",
-            "maintenanceid",
-            "maintenance_from",
-            "ipmi_errors_from",
-            "snmp_errors_from",
-            "jmx_disable_until",
-            "jmx_available",
-            "jmx_errors_from",
-            "templateid",
-            "tls_connect",
-            "auto_compress"
-        ]
         self.raw_data = raw_data
         for attribute in raw_data.keys():
             setattr(self, attribute, raw_data[attribute])
-            if attribute not in blacklist and raw_data[attribute].isnumeric():
-                self.__translateNumeric(attribute, raw_data[attribute])
+            try:
+                if raw_data[attribute].isnumeric():
+                    self.__translateNumeric(attribute, raw_data[attribute])
+            except AttributeError: pass
         self.__setItems(items)
         self.__setGraphs(graphs)
         self.__setEvents(events)
@@ -162,7 +145,8 @@ class Servidor():
                 4: "certificate"
             }
         }
-        setattr(self, attribute, translations[attribute][int(value)])
+        try: setattr(self, attribute, translations[attribute][int(value)])
+        except KeyError: pass
 
     def __setEvents(self, events):
         self.events = {}

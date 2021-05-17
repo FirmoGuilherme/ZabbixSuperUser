@@ -4,8 +4,10 @@ ZabAPI = getZabbixAPI()
 class GraphItem():
 
     def __init__(self, raw_data):
-        for attribute in raw_data.keys():
-            setattr(self, attribute, raw_data[attribute])
+        try:
+            for attribute in raw_data.keys():
+                setattr(self, attribute, raw_data[attribute])
+        except AttributeError: pass
         """
             gitemid
             graphid

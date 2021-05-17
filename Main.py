@@ -41,11 +41,9 @@ class Zabbix():
         if not name:
             for serverObj in self.servidores:
                 count += 1
-                #print(f"Saving {serverObj.host} to JSON {count}/{len(self.servidores)}.")
                 serverObj.saveAll()
         else:
             serverObj = self.getServer(name)
-            #print(f"Saving {serverObj.host} to JSON.")
             serverObj.saveAll()
 
     def getItemValues(self, id = False):

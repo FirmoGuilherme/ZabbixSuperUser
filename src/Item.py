@@ -1,3 +1,10 @@
+from time import mktime
+from datetime import datetime
+from src.Utils import ZabbixAPI, translateBytes
+
+time_end = int(mktime(datetime.now().timetuple()))
+time_start = time_end - 60 * 60 * 24 * 31
+
 class Item():
 
     def __init__(self, raw_data):
@@ -212,3 +219,13 @@ class Item():
         }
         try: setattr(self, attribute, translations[attribute][int(value)])
         except KeyError: pass
+
+    def getHistory(self):
+        self.rawHistory = ZabbixAPI.history.get(itemids = self.itemid, time_from=time_start, time_till=time_end, output='extend', limit='10000000')
+        self.histRawValues = [float(hist["value"]) for hist in self.rawHistory]
+        self.max = max(self.histRawValues)
+        self.min = min(self.histRawValues)
+        self.average = sum(self.histRawValues) / len(self.histRawValues)
+
+    def convertHistory(self):
+        self.max, self.min, self.average = translateBytes(self, self.name)

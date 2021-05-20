@@ -8,7 +8,9 @@ from platform import system as SYS
 from urllib.parse import urlencode
 from datetime import date, timedelta, datetime
 from json import load
-
+from os.path import isfile
+from datetime import datetime
+from pyzabbix import ZabbixAPIException
 
 
 
@@ -29,33 +31,28 @@ CookiesAndHeaders = {
         }
     }
 
-
-class errorHandler(Exception):
-
-    def __init__(self, error):
-        with open("error.log", "a") as log:
-            log.write(f"\n{datetime.now()} -     ")
-            log.write(error)
-        if error == "auth.json not found":
-            phrase = f"\n{datetime.now()}"
-            phrase += "\nArquivo auth.json não encontrado!"
-        super().__init__(phrase)
-
 def loadJson(file):
     with open(file, "r") as json:
         return load(json)
 
+def errorLog(error, message):
+    mode = "a"
+    if not isfile("error.log"): mode = "w"
+    with open("error.log", mode) as log:
+        phrase = "\n" + str(datetime.now())
+        if error != None:
+            phrase += "\n" + str(error)
+        else:
+            phrase += "\n" +message
+        log.write(phrase)
 
+    if error != None:
+        print(message)
+        print("Aperte ENTER para fechar o programa!")
+        input()
+        raise error
+    
 def __readAuth():
-    """
-        {
-            "API": {
-                "URL": "",
-                "Username": "",
-                "Password": ""
-            }
-        }
-    """
     json_values = {}
     try:
         with open("auth.json", "r") as json:
@@ -64,30 +61,39 @@ def __readAuth():
             json_values["User"] = info["API"]["Username"]
             json_values["Password"] = info["API"]["Password"]
         return json_values
-    except FileNotFoundError:
-        raise errorHandler(error = "auth.json not found")
+    except FileNotFoundError as excp:
+        phrase = "Arquivo de autenticação não encontrado!\n"
+        phrase += """Crie um arquivo com o nome 'auth.json' e a seguinte estrutura na mesma pasta que o programa:
+{
+    "API": {
+        "URL": "URL DO ZABBIX, ex: http://guardiao.workdb.com.br/",
+        "Username": "SEU USUÁRIO",
+        "Password": "SUA SENHA"
+    }
+}
+"""
+        errorLog(excp, phrase)
+        
 
-def getZabbixAPI():
+def __getZabbixAPI():
     Auth = __readAuth()
-    API = ZabbixAPI(Auth["Url"])
-    API.login(Auth["User"], Auth["Password"])
+    try:
+        API = ZabbixAPI(Auth["Url"])
+        API.login(user=Auth["User"], password=Auth["Password"])
+    except ZabbixAPIException as excp:
+        errorLog(excp, "Usuário ou senha incorreta do zabbix!")
     return API
 
-def getImage(url, zbxsessID, phpsessID):
-    CookiesAndHeaders["Cookies"]["PHPSESSID"] = phpsessID
-    CookiesAndHeaders["Cookies"]["zbx_sessionid"] = zbxsessID
-    response = get(url, cookies=CookiesAndHeaders["Cookies"], headers=CookiesAndHeaders["Headers"], verify=False)
-    bytes = BytesIO(response.content)
-    img = readBytes(bytes)
-    return img
 
-def getSessID():
+def __getSessID():
     Auth = __readAuth()
     encodedAuth = urlencode({"name": Auth["User"], "password": Auth["Password"], "enter": ""})
     data = post("http://guardiao.workdb.com.br/index.php?{}".format(encodedAuth))
     zbxSessionID = data.cookies.get("zbx_sessionid")
     phpSessionID = data.cookies.get("PHPSESSID")
     return zbxSessionID, phpSessionID
+
+
 
 def getOS():
     sys = SYS()
@@ -164,21 +170,35 @@ def translateBytes(obj, name):
         "disk",
         "memory",
         "swap",
-        "tamanho"
+        "tamanho",
+        "size"
     ]
     allValues = []
     
     if any(x.lower() in whitelist for x in name.split()) and "percentage" not in name and "%" not in name and "Percentual" not in name:
-        values = [data["value"] for data in obj.history]
+        values = obj.histRawValues
         values.sort()
         for value in values:
             allValues.append(__convertBytes(value))
-        return allValues, __convertBytes(obj.max), __convertBytes(obj.min) , __convertBytes(obj.average)
+        return __convertBytes(obj.max) , __convertBytes(obj.min), __convertBytes(obj.average)
+
     else:
-        return obj.allValues, obj.max, obj.min, obj.average
+        return obj.max, obj.min, obj.average
 
 def convertTimeFromUnix(time):
     clocks = []
     for value in time:
         clocks.append(datetime.utcfromtimestamp(int(value)))
     return clocks
+
+
+ZabbixAPI = __getZabbixAPI()
+zabbixSessionID, phpSessionID = __getSessID()
+
+def getImage(url):
+    CookiesAndHeaders["Cookies"]["PHPSESSID"] = phpSessionID
+    CookiesAndHeaders["Cookies"]["zbx_sessionid"] = zabbixSessionID
+    response = get(url, cookies=CookiesAndHeaders["Cookies"], headers=CookiesAndHeaders["Headers"], verify=False)
+    bytes = BytesIO(response.content)
+    img = readBytes(bytes)
+    return img

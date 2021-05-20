@@ -3,7 +3,7 @@ from json import dump
 from os import listdir
 
 ## Custom Imports
-from src.Utils import getZabbixAPI, removeInvalidChar, getSessID, toJSON, getDate, translateBytes, loadJson
+from src.Utils import ZabbixAPI, removeInvalidChar, toJSON, getDate, translateBytes, loadJson
 from src.Event import Event
 from src.Item import Item
 from src.GraphItem import GraphItem
@@ -11,9 +11,7 @@ from src.Graph import Graph
 
 
 
-ZabAPI = getZabbixAPI()
-zabbixSessionID, phpSessionID = getSessID()
-time_start, time_end = getDate()
+
 
 
 class Servidor():
@@ -30,6 +28,8 @@ class Servidor():
         self.__setGraphs(graphs)
         self.__setEvents(events)
         self.__filterInnactive()
+        self.saveAll()
+        self.getValues()
         """
             hostid
             proxy_hostid
@@ -181,7 +181,7 @@ class Servidor():
                 hasHistory = graphItemOBJ.historyFilter()
                 if hasHistory:
                     try:
-                        itemName = [item.name for item in self.items if item.itemid == graphItemOBJ.itemid][0]
+                        itemName = [item.name for item in self.items.values() if item.itemid == graphItemOBJ.itemid][0]
                         graphItemOBJ.allValues, graphItemOBJ.max, graphItemOBJ.min, graphItemOBJ.average = translateBytes(graphItemOBJ, itemName)
                         if graphItemOBJ.graphid not in self.graphItem.keys():
                             self.graphItem[graphItemOBJ.graphid] = [graphItemOBJ]
@@ -191,8 +191,8 @@ class Servidor():
                         for att, value in zip(graphItemOBJ.__dict__, graphItemOBJ.__dict__.values()):
                             mydict[itemName][att] = value
                     except IndexError: pass
-            with open(f"Servidores\{self.host}\Graphs\{name} - Values.json", "w") as json:
-                dump(mydict, json, indent=4)
+            toJSON(attributes = mydict.keys(), values = mydict.values(), file = f"Servidores\{self.host}\Graphs\{name} - Values.json")
+
                     
     def saveAll(self):
         from os import makedirs
@@ -283,26 +283,26 @@ def readFromFile(nome):
 def genServers(id):
     servidores = []
     if not id: 
-        for servidor in ZabAPI.host.get(output="extend"):
+        for servidor in ZabbixAPI.host.get(output="extend"):
             #print("Creating object %s"% servidor["host"])
-            items = ZabAPI.item.get(hostids = servidor["hostid"])
-            graphs = ZabAPI.graph.get(hostids = servidor["hostid"])
-            events = ZabAPI.event.get(hostids = servidor["hostid"])
+            items = ZabbixAPI.item.get(hostids = servidor["hostid"])
+            graphs = ZabbixAPI.graph.get(hostids = servidor["hostid"])
+            events = ZabbixAPI.event.get(hostids = servidor["hostid"])
             server = Servidor(servidor, items , graphs, events)
             servidores.append(server)
     else:
-        servidor = ZabAPI.host.get(hostids=id, output="extend")[0]
+        servidor = ZabbixAPI.host.get(hostids=id, output="extend")[0]
         #print("Creating object %s"% servidor["host"])
-        items = ZabAPI.item.get(hostids = servidor["hostid"])
-        graphs = ZabAPI.graph.get(hostids = servidor["hostid"])
-        events = ZabAPI.event.get(hostids = servidor["hostid"])
+        items = ZabbixAPI.item.get(hostids = servidor["hostid"])
+        graphs = ZabbixAPI.graph.get(hostids = servidor["hostid"])
+        events = ZabbixAPI.event.get(hostids = servidor["hostid"])
         server = Servidor(servidor, items , graphs, events)
         servidores.append(server)
     return servidores
 
 
 def getAllServers():
-    return [servidor for servidor in ZabAPI.host.get(output="extend")]
+    return [servidor for servidor in ZabbixAPI.host.get(output="extend")]
 
 def readServers():
     servidores = []

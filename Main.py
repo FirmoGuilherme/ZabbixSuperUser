@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*- 
 from src.Server import genServers, getAllServers, readServers
+from src.Utils import errorLog
 from pandas import read_excel
 from shutil import copyfile
 from os import mkdir, listdir, system
@@ -62,7 +63,10 @@ class Zabbix():
     def gerarRelatorios(self, nome = False):
         if not nome:
             whitelist = []
-            data = read_excel("Relação Clientes Monitoramento Relatório.xlsx", sheet_name = "Clientes WorkDB")["Gerar Relatórios de"]
+            try:
+                data = read_excel("Relação Clientes Monitoramento Relatório.xlsx", sheet_name = "Clientes WorkDB")["Gerar Relatórios de"]
+            except FileNotFoundError as excp:
+                errorLog(excp, "Arquivo 'Relação Clientes Monitoramento Relatório.xlsx' não encontrado!")
             for row in data:
                 try:
                     [whitelist.append(server) for server in row.split(",")]
@@ -78,8 +82,10 @@ class Zabbix():
                     servidorObj = self.getServer(name)
                     error = servidorObj.gerarRelatorio()
                     if not error:
+                        errorLog(None, message = f"Modelo {name} não encontrado, Verifique a nomenclatura dos arquivos na pasta MODELOS")
                         errors[name] = "Modelo não encontrado, Verifique a nomenclatura dos arquivos na pasta MODELOS"
                 except IndexError:
+                    errorLog(None, message = f"Erro no nome {server} - Verifique o Nome do Servidor na planilha Excel")
                     errors[server] = "Erro no nome - Verifique o Nome do Servidor na planilha Excel"
         else:
             id = [servidor["hostid"] for servidor in getAllServers() if servidor["host"] == nome.upper()][0]
@@ -89,14 +95,20 @@ class Zabbix():
             servidorObj = self.getServer(name)
             error = servidorObj.gerarRelatorio()
             if not error:
+                errorLog(None, message = f"Modelo {name} não encontrado, Verifique a nomenclatura dos arquivos na pasta MODELOS")
                 errors[name] = "Modelo não encontrado, Verifique a nomenclatura dos arquivos na pasta MODELOS"
     
 def printMenu():
     print("1 - Gerar todos os relatórios")
     print("2 - Gerar relatório de servidor específico")
     print("3 - Mover modelos para novo folder")
-    opc = int(input())
-    return opc
+    try:
+        opc = int(input())
+        return opc
+    except ValueError:
+        print("Insira um valor númerico citado acima!")
+        return None
+    
 
 if __name__ == "__main__":
     zab = Zabbix()

@@ -1,7 +1,5 @@
-from src.Utils import getImage, getZabbixAPI, getSessID
+from src.Utils import getImage, ZabbixAPI
 
-ZabAPI = getZabbixAPI()
-zabbixSessionID, phpSessionID = getSessID()
 
 class Graph():
 
@@ -46,14 +44,13 @@ class Graph():
     def getGraphImage(self):
 
         if "Disk" not in self.name and "Swap" not in self.name:
-            self.image = getImage(url = "http://guardiao.workdb.com.br/chart2.php?graphid={}&from=now-1M%2FM&to=now-1M%2FM&profileIdx=web.graphs.filter&profileIdx2={}=um5etv25&screenid=".format(self.graphid, self.graphid),zbxsessID=zabbixSessionID, phpsessID = phpSessionID)
+            self.image = getImage(url = "http://guardiao.workdb.com.br/chart2.php?graphid={}&from=now-1M%2FM&to=now-1M%2FM&profileIdx=web.graphs.filter&profileIdx2={}=um5etv25&screenid=".format(self.graphid, self.graphid))
         else:
-            self.image = getImage(url = "http://guardiao.workdb.com.br/chart2.php?graphid={}&from=now-1M%2FM&to=now-1M%2FM&profileIdx=web.graphs.filter&profileIdx2={}&width=1274&height=280&_=um5ge3fh&screenid=".format(self.graphid, self.graphid),zbxsessID=zabbixSessionID, phpsessID = phpSessionID)
+            self.image = getImage(url = "http://guardiao.workdb.com.br/chart2.php?graphid={}&from=now-1M%2FM&to=now-1M%2FM&profileIdx=web.graphs.filter&profileIdx2={}&width=1274&height=280&_=um5ge3fh&screenid=".format(self.graphid, self.graphid))
         return self.image
 
     def getItems(self):
-        ZabAPI = getZabbixAPI()
-        return ZabAPI.graphitem.get(graphids = self.graphid)
+        return ZabbixAPI.graphitem.get(graphids = self.graphid)
 
     def __translateNumeric(self , attribute, value):
         translations = {

@@ -1,5 +1,8 @@
-from src.Utils import getZabbixAPI
-ZabAPI = getZabbixAPI()
+from src.Utils import ZabbixAPI, datetime
+from time import mktime
+
+time_end = int(mktime(datetime.now().timetuple()))
+time_start = time_end - 60 * 60 * 24 * 31
 
 class GraphItem():
 
@@ -8,6 +11,8 @@ class GraphItem():
             for attribute in raw_data.keys():
                 setattr(self, attribute, raw_data[attribute])
         except AttributeError: pass
+        print(self.__dict__)
+        self.getHistory()
         """
             gitemid
             graphid
@@ -23,15 +28,7 @@ class GraphItem():
             average
         """
         
-    def historyFilter(self):
-        self.allValues = []
-        self.history = [hist for hist in ZabAPI.history.get(itemids = self.itemid, time_from=time_start, time_till=time_end, output='extend', limit='10000000')]
-        if not len(self.history):
-            self.history = [hist for hist in ZabAPI.history.get(itemids = self.itemid, time_from=time_start, time_till=time_end, output='extend', limit='10000000', history = 0)]
-        if len(self.history) == 0: return False
-        else:
-            self.max = max([float(value["value"]) for value in self.history])
-            self.min = min([float(value["value"]) for value in self.history])
-            self.average = (sum([float(value["value"]) for value in self.history]) / len([float(value["value"]) for value in self.history]))
-            return True
+    def getHistory(self):
+
+        self.history = ZabbixAPI.history.get(itemids=self.itemid, time_start=time_statr, time_end=time_end)
    

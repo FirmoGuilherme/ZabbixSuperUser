@@ -11,6 +11,7 @@ from json import load
 from os.path import isfile
 from datetime import datetime
 from pyzabbix import ZabbixAPIException
+from traceback import format_exc
 
 
 
@@ -35,18 +36,18 @@ def loadJson(file):
     with open(file, "r") as json:
         return load(json)
 
-def errorLog(error, message):
+def errorLog(error, message, writeTraceback = False, raiseError = False):
     mode = "a"
     if not isfile("error.log"): mode = "w"
     with open("error.log", mode) as log:
         phrase = "\n" + str(datetime.now())
-        if error != None:
-            phrase += "\n" + str(error)
+        if writeTraceback:
+            phrase += "\n" + format_exc()
         else:
-            phrase += "\n" +message
+            phrase += "\n" + message
         log.write(phrase)
 
-    if error != None:
+    if raiseError:
         print(message)
         print("Aperte ENTER para fechar o programa!")
         input()
@@ -72,7 +73,7 @@ def __readAuth():
     }
 }
 """
-        errorLog(excp, phrase)
+        errorLog(excp, phrase, writeTraceback = True, raiseError = True)
         
 
 def __getZabbixAPI():
@@ -81,7 +82,7 @@ def __getZabbixAPI():
         API = ZabbixAPI(Auth["Url"])
         API.login(user=Auth["User"], password=Auth["Password"])
     except ZabbixAPIException as excp:
-        errorLog(excp, "Usuário ou senha incorreta do zabbix!")
+        errorLog(excp, "Usuário ou senha incorreta do zabbix!", writeTraceback = True, raiseError = True)
     return API
 
 

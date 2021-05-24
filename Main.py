@@ -16,10 +16,9 @@ def moverModelos():
         except FileExistsError: pass
         try:
             copyfile(r"Servidores\{}\Graphs\{}".format(server, [file for file in listdir(r"Servidores\{}\Graphs".format(server)) if file.endswith("docx")][0]), r"ModelosNovos\{}\_{}.docx".format(server, server))
-        except IndexError: print(f"Modelo {server} não encontrado")
+        except IndexError: errors[server] = f"Modelo não encontrado na pasta de Servidores!"
     print("\n")
     print("Selecione TODOS os arquivos na pasta 'ModelosNovos'\nE coloque-os na pasta 'Modelos'")
-    input()
 
 class Zabbix():
 
@@ -66,7 +65,9 @@ class Zabbix():
             try:
                 data = read_excel("Relação Clientes Monitoramento Relatório.xlsx", sheet_name = "Clientes WorkDB")["Gerar Relatórios de"]
             except FileNotFoundError as excp:
-                errorLog(excp, "Arquivo 'Relação Clientes Monitoramento Relatório.xlsx' não encontrado!")
+                errorLog(excp, "Arquivo com relação de servidores não encontrado!\nCrie o arquivo 'Relação Clientes Monitoramento Relatório.xlsx' na mesma pasta que o programa\nCrie então uma coluna com o nome 'Clientes WorkDB' e, abaixo dela, adicione os servidores que devem ser gerados relatórios", writeTraceback = True, raiseError = True)
+            except ValueError as excp:
+                errorLog(excp, "Planilha 'Clientes WorkDB' não encontrada!\nNo canto inferior esquerdo, altere o nome da planilha com a lista de servidores para 'Clientes WorkDB'", writeTraceback = True, raiseError = True)
             for row in data:
                 try:
                     [whitelist.append(server) for server in row.split(",")]
@@ -82,11 +83,11 @@ class Zabbix():
                     servidorObj = self.getServer(name)
                     error = servidorObj.gerarRelatorio()
                     if not error:
-                        errorLog(None, message = f"Modelo {name} não encontrado, Verifique a nomenclatura dos arquivos na pasta MODELOS")
+                        errorLog(error = None, message = f"Modelo '{name}' não encontrado, Verifique a nomenclatura dos arquivos na pasta MODELOS")
                         errors[name] = "Modelo não encontrado, Verifique a nomenclatura dos arquivos na pasta MODELOS"
                 except IndexError:
-                    errorLog(None, message = f"Erro no nome {server} - Verifique o Nome do Servidor na planilha Excel")
-                    errors[server] = "Erro no nome - Verifique o Nome do Servidor na planilha Excel"
+                    errorLog(None, message = f"Erro no nome '{server}' - Verifique o Nome do Servidor na planilha Excel")
+                    errors[server] = f"Erro no nome - Verifique o Nome do Servidor na planilha Excel"
         else:
             id = [servidor["hostid"] for servidor in getAllServers() if servidor["host"] == nome.upper()][0]
             name = [servidor["host"] for servidor in getAllServers() if servidor["host"] == nome.upper()][0]
@@ -95,7 +96,7 @@ class Zabbix():
             servidorObj = self.getServer(name)
             error = servidorObj.gerarRelatorio()
             if not error:
-                errorLog(None, message = f"Modelo {name} não encontrado, Verifique a nomenclatura dos arquivos na pasta MODELOS")
+                errorLog(None, message = f"Modelo '{name}' não encontrado, Verifique a nomenclatura dos arquivos na pasta MODELOS")
                 errors[name] = "Modelo não encontrado, Verifique a nomenclatura dos arquivos na pasta MODELOS"
     
 def printMenu():
@@ -124,8 +125,8 @@ if __name__ == "__main__":
         elif opc == 2:
             nome = input("Insira o nome do servidor\n").upper()
             zab.gerarRelatorios(nome = nome)
-            for key, value in errors.items():
-                print(f"{key} - {value}")
-            input()
         elif opc == 3:
             moverModelos()
+        for key, value in errors.items():
+            print(f"{key} - {value}")
+        input()

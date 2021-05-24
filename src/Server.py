@@ -29,7 +29,7 @@ class Servidor():
         self.__setEvents(events)
         self.__filterInnactive()
         self.saveAll()
-        self.getValues()
+        #self.getValues()
         """
             hostid
             proxy_hostid

@@ -79,7 +79,7 @@ class Zabbix():
                     id = [servidor["hostid"] for servidor in getAllServers() if servidor["host"] == server][0]
                     name = [servidor["host"] for servidor in getAllServers() if servidor["host"] == server][0]
                     self.setServers(id = id)
-                    self.serversToJSON(name = name)
+                    #self.serversToJSON(name = name)
                     servidorObj = self.getServer(name)
                     error = servidorObj.gerarRelatorio()
                     if not error:
@@ -92,7 +92,7 @@ class Zabbix():
             id = [servidor["hostid"] for servidor in getAllServers() if servidor["host"] == nome.upper()][0]
             name = [servidor["host"] for servidor in getAllServers() if servidor["host"] == nome.upper()][0]
             self.setServers(id = id)
-            self.serversToJSON(name = name)
+            #self.serversToJSON(name = name)
             servidorObj = self.getServer(name)
             error = servidorObj.gerarRelatorio()
             if not error:

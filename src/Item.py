@@ -217,8 +217,8 @@ class Item():
                 1: "Validate"
             }
         }
-        try: setattr(self, attribute, translations[attribute][int(value)])
-        except KeyError: pass
+        attr_value = translations.get(attribute, {int(value): int(value)}).get(int(value))
+        setattr(self, attribute, attr_value)
 
     def getHistory(self):
         self.rawHistory = ZabbixAPI.history.get(itemids = self.itemid, time_from=time_start, time_till=time_end, output='extend', limit='10000000')

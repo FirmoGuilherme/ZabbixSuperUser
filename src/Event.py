@@ -78,6 +78,6 @@ class Event():
                 1: "Yes"
             }
         }
-        try: setattr(self, attribute, translations[attribute][int(value)])
-        except KeyError: pass
+        attr_value = translations.get(attribute, {int(value): int(value)}).get(int(value))
+        setattr(self, attribute, attr_value)
 

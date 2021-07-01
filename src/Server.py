@@ -10,10 +10,6 @@ from src.GraphItem import GraphItem
 from src.Graph import Graph
 
 
-
-
-
-
 class Servidor():
 
     def __init__(self, raw_data, items, graphs, events):
@@ -29,7 +25,6 @@ class Servidor():
         self.__setEvents(events)
         self.__filterInnactive()
         self.saveAll()
-        #self.getValues()
         """
             hostid
             proxy_hostid
@@ -145,8 +140,8 @@ class Servidor():
                 4: "certificate"
             }
         }
-        try: setattr(self, attribute, translations[attribute][int(value)])
-        except KeyError: pass
+        attr_value = translations.get(attribute, {int(value): int(value)}).get(int(value))
+        setattr(self, attribute, attr_value)
 
     def __setEvents(self, events):
         self.events = {}
@@ -221,18 +216,23 @@ class Servidor():
         def graphs():
             for graph in self.graphs.values():
                 name = removeInvalidChar(graph.name)
+                toJSON(graph.__dict__, graph.__dict__.values(), f"Servidores\\{self.host}\\Graphs\\{name}.json")
+
+        def graph_images():
+            for graph in self.graphs.values():
+                name = removeInvalidChar(graph.name)
                 img = graph.getGraphImage()
-                img.save(f"Servidores\{self.host}\Graphs\{name}.png")
-                toJSON(graph.__dict__, graph.__dict__.values(), f"Servidores\{self.host}\Graphs\{name}.json")
+                img.save(f"Servidores\\{self.host}\\Graphs\\{name}.png")
 
         def events():
             for event in self.events.values():
                 name = removeInvalidChar(event.name)
-                toJSON(event.__dict__, event.__dict__.values(), f"Servidores\{self.host}\Events\{name}.json")
+                toJSON(event.__dict__, event.__dict__.values(), f"Servidores\\{self.host}\\Events\\{name}.json")
 
-        items()
-        graphs()
-        events()
+        #items()
+        #graphs()
+        #events()
+        graph_images()
     
     def gerarRelatorio(self):
         try:

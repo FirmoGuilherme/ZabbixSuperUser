@@ -1,7 +1,6 @@
 from json import load, dump
-from pyzabbix import ZabbixAPI
 from time import mktime
-from requests import get, post
+from requests import get, 
 from io import BytesIO
 from PIL.Image import open as readBytes
 from platform import system as SYS
@@ -10,7 +9,6 @@ from datetime import date, timedelta, datetime
 from json import load
 from os.path import isfile
 from datetime import datetime
-from pyzabbix import ZabbixAPIException
 from traceback import format_exc
 
 
@@ -74,42 +72,9 @@ def __readAuth():
 }
 """
         errorLog(excp, phrase, writeTraceback = True, raiseError = True)
-        
-
-def __getZabbixAPI():
-    Auth = __readAuth()
-    try:
-        API = ZabbixAPI(Auth["Url"])
-        API.login(user=Auth["User"], password=Auth["Password"])
-    except ZabbixAPIException as excp:
-        errorLog(excp, "Usuário ou senha incorreta do zabbix!", writeTraceback = True, raiseError = True)
-    return API
 
 
-def __getSessID():
-    Auth = __readAuth()
-    encodedAuth = urlencode({"name": Auth["User"], "password": Auth["Password"], "enter": ""})
-    data = post("http://guardiao.workdb.com.br/index.php?{}".format(encodedAuth))
-    zbxSessionID = data.cookies.get("zbx_sessionid")
-    phpSessionID = data.cookies.get("PHPSESSID")
-    return zbxSessionID, phpSessionID
-
-
-
-def getOS():
-    sys = SYS()
-    if sys.lower() == "linux": return "linux"
-    elif sys.lower() == "windows": return "windows"
-        
-def toJSON(attributes, values, file):
-    config = {}
-    for attribute, value in zip(attributes, values):
-        if type(value) == str or type(value) == int and len(str(value)) >= 1:
-            config[attribute] = value
-    with open(file, "w") as json:
-        dump(config, json, indent = 4)
-
-def removeInvalidChar(name):
+def remove_invalid_char(name):
     words_blacklist = [
     "{$SID}", 
     "(SEG)",
@@ -139,7 +104,19 @@ def removeInvalidChar(name):
         filtered = filtered[0:-1]
     return filtered
 
-def getDate():
+def write_to_file(file, text):
+    with open(file, "w") as txt:
+        txt.write(text)
+
+def read_from_file(file):
+    with open(file, "r") as txt:
+        return txt.readlines()
+
+def write_to_json(file, data):
+    with open(file, "w") as json:
+        dump(data, json, indent=4)
+
+def get_date():
     lastDay = (date.today().replace(day=1) - timedelta(days=1)).strftime("%Y%m%d")
     firstDay = lastDay[0:-2] + "01"
     lastDay = datetime(int(lastDay[0:4]), int(lastDay[4:6]), int(lastDay[6:]), 23 ,59 ,59)
@@ -193,8 +170,7 @@ def convertTimeFromUnix(time):
     return clocks
 
 
-ZabbixAPI = __getZabbixAPI()
-zabbixSessionID, phpSessionID = __getSessID()
+
 
 def getImage(url):
     CookiesAndHeaders["Cookies"]["PHPSESSID"] = phpSessionID
@@ -203,3 +179,55 @@ def getImage(url):
     bytes = BytesIO(response.content)
     img = readBytes(bytes)
     return img
+
+
+
+
+class LogsHandler():
+
+    if not isdir("Logs"):
+        mkdir("Logs")
+
+    def __init__(self):
+        self.__init_warning_Logs()
+        self.__init_error_Logs()
+        self.__init_info_Logs()
+
+    def __init_error_Logs(self):
+        handler = logging.FileHandler("Logs/ERROR.log")
+        handler.setFormatter(logging.Formatter('\n%(asctime)s: %(message)s'))
+        self.error_logger = logging.getLogger("ERROR")
+        self.error_logger.setLevel(logging.ERROR)
+        self.error_logger.addHandler(handler)
+
+    def log_error(self, message, write_traceback=False):
+        self.error_logger.error(message)
+        if write_traceback:
+            self.error_logger.error(format_exc())
+
+    def __init_warning_Logs(self):
+        handler = logging.FileHandler("Logs/WARNING.log")
+        handler.setFormatter(logging.Formatter('\n%(asctime)s: %(message)s'))
+        self.warning_logger = logging.getLogger("WARNING")
+        self.warning_logger.setLevel(logging.WARNING)
+        self.warning_logger.addHandler(handler)
+
+    def log_warning(self, message, write_traceback=False):
+        self.warning_logger.warning(message)
+        if write_traceback:
+            self.warning_logger.error(format_exc())
+
+    def __init_info_Logs(self):
+        handler = logging.FileHandler("Logs/INFO.log")
+        handler.setFormatter(logging.Formatter('%(asctime)s: %(message)s'))
+        self.info_logger = logging.getLogger("INFO")
+        self.info_logger.setLevel(logging.INFO)
+        self.info_logger.addHandler(handler)
+
+    def log_info(self, message, write_traceback=False):
+        self.info_logger.info(message)
+        if write_traceback:
+            self.info_logger.info(format_exc())
+
+
+Logger = LogsHandler()

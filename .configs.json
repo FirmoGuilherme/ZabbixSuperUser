@@ -1,0 +1,13 @@
+{
+    "Web": {
+        "url": "http://guardiao.workdb.com.br/"
+    },
+    "Directories": {
+        "modelos_storage": "ModelosAtualizados",
+        "relatorios_storage": "Relatorios"
+    },
+    "Credentials": {
+        "user": "lucas.hoeltgebaum",
+        "password": "bDQwMjE1MDA3"
+    }
+}

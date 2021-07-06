@@ -1,30 +1,31 @@
 from shutil import copy
 from json import dump
-from os import listdir
+from os import path, makedirs, remove
+from threading import Thread
 
 ## Custom Imports
-from src.Utils import ZabbixAPI, removeInvalidChar, toJSON, getDate, translateBytes, loadJson
-from src.Event import Event
-from src.Item import Item
-from src.GraphItem import GraphItem
-from src.Graph import Graph
+from src.Zabbix.API.Event import Event
+from src.Zabbix.API.Item import Item
+from src.Zabbix.API.GraphItem import GraphItem
+from src.Zabbix.API.Graph import Graph
+from src.Zabbix.API.GenericZabbixObject import GenericZabbixObject
 
+class Server(GenericZabbixObject):
 
-class Servidor():
-
-    def __init__(self, raw_data, items, graphs, events):
+    def __init__(self, raw_data):
+        super().__init__(raw_data)
+        self.events = []
+        self.items = []
+        self.graphs = []
         self.raw_data = raw_data
-        for attribute in raw_data.keys():
-            setattr(self, attribute, raw_data[attribute])
-            try:
-                if raw_data[attribute].isnumeric():
-                    self.__translateNumeric(attribute, raw_data[attribute])
-            except AttributeError: pass
-        self.__setItems(items)
-        self.__setGraphs(graphs)
-        self.__setEvents(events)
-        self.__filterInnactive()
-        self.saveAll()
+        
+        t1 = Thread(target=self.__set_items)
+        t1.start()
+        t2 = Thread(target=self.__set_graphs)
+        t2.start()
+        t3 = Thread(target=self.__set_events)
+        t3.start()
+        t1.join(), t2.join(), t3.join()
         """
             hostid
             proxy_hostid
@@ -70,246 +71,43 @@ class Servidor():
             inventory_mode
          """
 
-    def __translateNumeric(self , attribute, value):
-        translations = {
-            "available":{
-                0: "(default) unknow",
-                1: "available",
-                2: "unavailable"
-            },
-            "flags":{
-                0: "a plain host",
-                4: "a discovered host"
-            },
-            "inventory_mode":{
-               -1: "disabled",
-                0: "(default) normal",
-                1: "automatic"
-            },
-            "ipmi_authtype":{
-               -1: "(default) default",
-                0: "none",
-                1: "MD2",
-                2: "MD5",
-                4: "straight",
-                5: "OEM",
-                6: "RMCP+"
-            },
-            "ipmi_available":{
-                0: "(default) unknow",
-                1: "available",
-                2: "unavailable"
-            },
-            "ipmi_privilege":{
-                1: "callback",
-                2: "(default) user",
-                3: "operator",
-                4: "admin",
-                5: "OEM"
-            },
-            "jxm_available":{
-                0: "(default) unknow",
-                1: "available",
-                2: "unavailable"
-            },
-            "maintenance_status":{
-                0: "(default) no maintenance",
-                1: "maintenance in effect"
-            },
-            "maintenance_type":{
-                0: "(default) maintenance with data collection",
-                1: "maintenance without data collection"
-            },
-            "snmp_available":{
-                0: "(default) unkown",
-                1: "available",
-                2: "unavailable"
-            },
-            "status":{
-                0: "(default) No encryption",
-                1: "unmonitored host"
-            },
-            "tls_connect":{
-                0: "(default) No encryption",
-                1: "PSK",
-                4: "certificate"
-            },
-            "tls_accept":{
-                1: "(default) No encryption",
-                2: "PSK",
-                4: "certificate"
-            }
-        }
-        attr_value = translations.get(attribute, {int(value): int(value)}).get(int(value))
-        setattr(self, attribute, attr_value)
+    def __set_items(self):
+        items = self.CONSTANTS.ZABBIX_API.item.get(hostids = self.hostid)
+        for obj in items:
+            self.items.append(Item(obj))
 
-    def __setEvents(self, events):
-        self.events = {}
-        for event in events:
-            eventObj = Event(event)
-            self.events[eventObj.name] = eventObj
+    def __set_graphs(self):
+        graphs = self.CONSTANTS.ZABBIX_API.graph.get(hostids = self.hostid)
+        for obj in graphs:
+            self.graphs.append(Graph(obj))
 
-    def __setItems(self, items):
-        self.items = {}
-        for item in items:
-            itemObj = Item(item)
-            self.items[itemObj.name] = itemObj
+    def __set_events(self):
+        events = self.CONSTANTS.ZABBIX_API.event.get(hostids = self.hostid)
+        for obj in events:
+            self.events.append(Event(obj))
 
-    def __setGraphs(self, graphs):
-        self.graphs = {}
-        for rawData in graphs:
-            graphObj = Graph(rawData)
-            self.graphs[graphObj.name] = graphObj
-
-    def __filterInnactive(self):
-        self.itemsInactive = [item for item in self.items.values() if (item.state == "not supported" or item.status == "disabled item")]
-        self.itemsActive = [item for item in self.items.values() if (item.state != "not supported" or item.status != "disabled item")]
-
-    def getValues(self):
-        self.graphItem = {}
-        for graph in self.graphs.values():
-            mydict = {}
-            name = removeInvalidChar(graph.name)
-            graphItems = graph.getItems()
-            for item in graphItems:
-                graphItemOBJ = GraphItem(item)
-                hasHistory = graphItemOBJ.historyFilter()
-                if hasHistory:
-                    try:
-                        itemName = [item.name for item in self.items.values() if item.itemid == graphItemOBJ.itemid][0]
-                        graphItemOBJ.allValues, graphItemOBJ.max, graphItemOBJ.min, graphItemOBJ.average = translateBytes(graphItemOBJ, itemName)
-                        if graphItemOBJ.graphid not in self.graphItem.keys():
-                            self.graphItem[graphItemOBJ.graphid] = [graphItemOBJ]
-                        else:
-                            self.graphItem[graphItemOBJ.graphid].append(graphItemOBJ)
-                        mydict[itemName] = {}
-                        for att, value in zip(graphItemOBJ.__dict__, graphItemOBJ.__dict__.values()):
-                            mydict[itemName][att] = value
-                    except IndexError: pass
-            toJSON(attributes = mydict.keys(), values = mydict.values(), file = f"Servidores\{self.host}\Graphs\{name} - Values.json")
-
-                    
-    def saveAll(self):
-        from os import makedirs
-        try: makedirs(f"Servidores\\{self.host}\\Items\\Enabled")
-        except FileExistsError: pass
-        try: makedirs(f"Servidores\\{self.host}\\Items\\Disabled\\unSupported")
-        except FileExistsError: pass
-        try: makedirs(f"Servidores\\{self.host}\\Graphs")
-        except FileExistsError: pass
-        try: makedirs(f"Servidores\\{self.host}\\Events")
-        except FileExistsError: pass
-
-        ## Server Config
-        toJSON(self.__dict__, self.__dict__.values(), f"Servidores\{self.host}\config.json")
-
-        def items():
-            for item in self.items.values():
-                name = removeInvalidChar(item.name)
-                if item.state == "not supported":
-                    toJSON(item.__dict__, item.__dict__.values(), f"Servidores\\{self.host}\\Items\\Disabled\\unSupported\\{name}.json")
-                elif item.status == "disabled item":
-                    toJSON(item.__dict__, item.__dict__.values(), f"Servidores\\{self.host}\\Items\\Disabled\\{name}.json")
-                else:
-                    toJSON(item.__dict__, item.__dict__.values(), f"Servidores\\{self.host}\\Items\\Enabled\\{name}.json")
-
-        def graphs():
-            for graph in self.graphs.values():
-                name = removeInvalidChar(graph.name)
-                toJSON(graph.__dict__, graph.__dict__.values(), f"Servidores\\{self.host}\\Graphs\\{name}.json")
-
-        def graph_images():
-            for graph in self.graphs.values():
-                name = removeInvalidChar(graph.name)
-                img = graph.getGraphImage()
-                img.save(f"Servidores\\{self.host}\\Graphs\\{name}.png")
-
-        def events():
-            for event in self.events.values():
-                name = removeInvalidChar(event.name)
-                toJSON(event.__dict__, event.__dict__.values(), f"Servidores\\{self.host}\\Events\\{name}.json")
-
-        #items()
-        #graphs()
-        #events()
-        graph_images()
-    
-    def gerarRelatorio(self):
+    def gerar_relatorio(self):
+        '''
+        0 = Modelo encontrado
+        1 = Modelo não encontrado
+        '''
+        path_salvar = path.join(self.CONSTANTS.CONFIGS.relatorios_storage, self.host)
         try:
-            copy(f"Modelos/{self.host}/_{self.host}.docx", f"Servidores/{self.host}/Graphs/_{self.host}.docx")
-            return True
+            makedirs(path_salvar)
+        except FileExistsError:
+            pass
+        try:
+            copy(path.join(self.CONSTANTS.CONFIGS.modelos_storage, f"{self.host}.docx"), 
+                path.join(path_salvar, f"_{self.host}.docx"))
+        except FileExistsError:
+            # Modelo ja no folder do servidor
+            remove(path.join(self.CONSTANTS.CONFIGS.modelos_storage, f"{self.host}.docx"))
+            copy(path.join(self.CONSTANTS.CONFIGS.modelos_storage, f"{self.host}.docx"), 
+                path.join(path_salvar, f"_{self.host}.docx"))
         except FileNotFoundError:
-            return False
+            # Sem modelo
+            pass
 
-
-def readFromFile(nome):
-    from json import load
-    from os import listdir
-    serverConfig = {}
-    items = []
-    graphs = []
-    events = []
-    with open(f"Servidores\{nome}\config.json", "r") as Config:
-        data = load(Config)
-        for attribute, value in zip(data.keys(), data.values()):
-            serverConfig[attribute] = value
-
-
-    ## Items não suportados
-    for item in listdir(f"Servidores\\{nome}\\Items\\Disabled\\unSupported"): 
-        items.append(loadJson(f"Servidores\\{nome}\\Items\\Disabled\\unSupported\\{item}"))
-    ## Items desabilitados
-    for item in [item for item in listdir(f"Servidores\{nome}\Items\Disabled") if item != "unSupported"]: 
-        items.append(loadJson(f"Servidores\{nome}\Items\Disabled\{item}"))
-    ## Items habilitados
-    for item in listdir(f"Servidores\{nome}\Items\Enabled"): 
-        items.append(loadJson(f"Servidores\{nome}\Items\Enabled\{item}"))
-
-
-    ## Gráficos
-    for graph in [graph for graph in listdir(f"Servidores\{nome}\Graphs") if graph.endswith("json") and "Values" not in graph]:
-        graphs.append(loadJson(f"Servidores\{nome}\Graphs\{graph}"))
-
-
-    ## Eventos
-    for event in listdir(f"Servidores\{nome}\Events"): 
-        events.append(loadJson(f"Servidores\{nome}\Events\{event}"))
-
-    return serverConfig, items, graphs, events
-
-
-
-
-def genServers(id):
-    servidores = []
-    if not id: 
-        for servidor in ZabbixAPI.host.get(output="extend"):
-            #print("Creating object %s"% servidor["host"])
-            items = ZabbixAPI.item.get(hostids = servidor["hostid"])
-            graphs = ZabbixAPI.graph.get(hostids = servidor["hostid"])
-            events = ZabbixAPI.event.get(hostids = servidor["hostid"])
-            server = Servidor(servidor, items , graphs, events)
-            servidores.append(server)
-    else:
-        servidor = ZabbixAPI.host.get(hostids=id, output="extend")[0]
-        #print("Creating object %s"% servidor["host"])
-        items = ZabbixAPI.item.get(hostids = servidor["hostid"])
-        graphs = ZabbixAPI.graph.get(hostids = servidor["hostid"])
-        events = ZabbixAPI.event.get(hostids = servidor["hostid"])
-        server = Servidor(servidor, items , graphs, events)
-        servidores.append(server)
-    return servidores
-
-
-def getAllServers():
-    return [servidor for servidor in ZabbixAPI.host.get(output="extend")]
-
-def readServers():
-    servidores = []
-    try:
-        for server in listdir("Servidores"):
-            serverConfig, items, graphs, events = readFromFile(server)
-            serv = Servidor(serverConfig, items, graphs, events)
-            servidores.append(serv)
-    except FileNotFoundError: pass
-    return servidores
+        for graph in self.graphs:
+            img = graph.get_image()
+            img.save(path.join(path_salvar, f"{graph.name}.png"))

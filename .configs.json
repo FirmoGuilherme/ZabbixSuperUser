@@ -3,11 +3,12 @@
         "url": "http://guardiao.workdb.com.br/"
     },
     "Directories": {
-        "modelos_storage": "ModelosAtualizados",
-        "relatorios_storage": "Relatorios"
+        "modelos_storage": "Modelos",
+        "relatorios_storage": "Relatorios",
+        "excel_relatorios": "Rela\u00e7\u00e3o Clientes Monitoramento Relat\u00f3rio.xlsx"
     },
     "Credentials": {
         "user": "lucas.hoeltgebaum",
-        "password": "bDQwMjE1MDA3"
+        "password": "V29ya2RiIzIwMjE="
     }
 }

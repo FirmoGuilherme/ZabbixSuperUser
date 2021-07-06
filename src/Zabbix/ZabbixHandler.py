@@ -1,33 +1,57 @@
-from src.Configs.Configs import ConfigsHandler
-from pyzabbix import ZabbixAPIException
-from pyzabbix import ZabbixAPI
-from requests import post
+from src.Utils import Logger, read_from_excel
+from src.Constants.Constants import CONSTANTS
+from threading import Thread
+from src.Zabbix.API.Server import Server
 
 class ZabbixHandler():
 
-	Configs = ConfigsHandler()
-	
+	CONSTANTS = CONSTANTS
+	Logger = Logger
+
 	def __init__(self):
-		pass
-		
+		self.gerar_lista_servidores()
 
-	def __get_zabbix_api():
-	    try:
-	        API = ZabbixAPI(Configs.url)
-	        API.login(user=Configs.user, password=Configs.password)
-	    except ZabbixAPIException as excp:
-	        errorLog(excp, "Usuário ou senha incorreta do zabbix!", writeTraceback = True, raiseError = True)
-	    return API
+	def gerar_lista_servidores(self):
+		self.grupos_de_host = {h["name"]:h for h in
+		self.CONSTANTS.ZABBIX_API.hostgroup.get(real_hosts="true",with_graphs="true") 
+		if "WORKDB " not in h["name"]}
+		self.hosts = {h["host"]:h for h in self.CONSTANTS.ZABBIX_API.host.get(output="extend")}
 
-	ZabbixAPI = __get_zabbix_api()
+	def gerar_relatorio(self, todos = False, id = None, name = None, host_group = None):
+		if todos:
+			rows = read_from_excel(self.CONSTANTS.CONFIGS.excel_relatorios, "Clientes WorkDB")["Gerar Relatórios de"]
+			for row in rows:
+				for server in row.split(",").replace(" ", ""):
+					self.gerar_relatorio(name=server)
+			# abrir planilha do excel
+		elif host_group:
+			id = self.grupos_de_host[host_group]["groupid"]
+			servidores = self.CONSTANTS.ZABBIX_API.host.get(output="extend", groupids=id)
+			for raw_data in servidores:
+				# START THREAD FOR EACH SERVER? MAX NUM OF THREADS?
+				s = Server(raw_data)
+				s.gerar_relatorio()
+		elif id:
+			raw_data = self.CONSTANTS.ZABBIX_API.host.get(output="extend", hostids=id)
+			s = Server(raw_data[0])
+			s.gerar_relatorio()
 
-	def __get_sess_id(url, user, password):
-	    encodedAuth = urlencode({"name": user, "password": password, "enter": ""})
-	    data = post(f"{url}/index.php?{encodedAuth}")
-	    zbxSessionID = data.cookies.get("zbx_sessionid")
-	    phpSessionID = data.cookies.get("PHPSESSID")
-	    return zbxSessionID, phpSessionID
+		elif name:
+			id = self.hosts[name]["hostid"]
+			raw_data = self.CONSTANTS.ZABBIX_API.host.get(output="extend", hostids=id)
+			s = Server(raw_data[0])
+			s.gerar_relatorio()
 
 
-	zabbix_session_id, php_session_id = __get_sess_id(Configs.url, Configs.user, Configs.password)
 
+	def get_sub_menu_presentation_list(self, chosen_menu):
+		if chosen_menu == "Todos":
+			return [f"{len(self.grupos_de_host)} Grupos de Host"]
+		elif chosen_menu == "Grupo de Hosts":
+			lst = [h["name"] for h in self.grupos_de_host.values()]
+			lst.sort()
+			return lst
+		elif chosen_menu == "Host único":
+			lst = [h for h in self.hosts]
+			lst.sort()
+			return lst

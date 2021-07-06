@@ -1,14 +1,15 @@
 from json import dump, load
 from os.path import isfile, join
 from os import makedirs
-from selenium import webdriver as WebDriver
-from appium import webdriver as MobileDriver
 from copy import copy
 from base64 import b64encode, b64decode
-from src.Utils import Logger, write_to_json
+from src.Utils import Logger, write_to_json, read_from_json
+from traceback import format_exc
+from json.decoder import JSONDecodeError
 
 path = []
 result = []
+
 
 
 class ConfigsHandler():
@@ -20,9 +21,7 @@ class ConfigsHandler():
 
     def __set_all_attributes(self, parentAttr):
         for key, value in parentAttr.items():
-            if key == "mobile_capabilities":
-                setattr(self, key, value)
-            elif type(value) != dict:
+            if type(value) != dict:
                 if "/" in str(value) and "http" not in value:
                     value = join(*[folder for folder in value.split("/")])
                 elif "\\" in str(value) and "http" not in value:
@@ -32,8 +31,7 @@ class ConfigsHandler():
                 self.__set_all_attributes(value)
 
     def __create_storage_folders(self):
-        folders_list = [value for key,
-                        value in self.__dict__.items() if "storage" in key]
+        folders_list = [value for key, value in self.__dict__.items() if "storage" in key]
         for folder_path in folders_list:
             try:
                 makedirs(folder_path)
@@ -49,8 +47,9 @@ class ConfigsHandler():
                 "url": "http://guardiao.workdb.com.br/"
             },
             "Directories": {
-                "modelos_storage": "ModelosAtualizados",
-                "relatorios_storage": "Relatorios"
+                "modelos_storage": "Modelos",
+                "relatorios_storage": "Relatorios",
+                "excel_relatorios": "Relação Clientes Monitoramento Relatório.xlsx"
             },
             "Credentials": {
                 "user": "lucas.hoeltgebaum",
@@ -59,7 +58,10 @@ class ConfigsHandler():
         }
 
         if isfile(".configs.json"):
-            return load(open(".configs.json", "r"))
+            try:
+                return read_from_json(".configs.json")
+            except JSONDecodeError:
+                return defaults
         else:
             Logger.log_warning(
                 message=".configs.json não encontrado, usando valores Default", write_traceback=False)
@@ -68,7 +70,6 @@ class ConfigsHandler():
     def save_configs(self, new_config):
         current_config = self.__get_configs()
         for key, value in new_config.items():
-            setattr(ConfigsHandler, key, value)
             self.__iter_configs(key=key)
             path_to_config = result[0]
             if key == "password":
@@ -105,9 +106,9 @@ class ConfigsHandler():
                 path.pop()
 
     def translate(self, key, reverse=False):
-        translations = {"web_driver_name": "Browser", "web_driver_path": "Caminho para o Driver",
-                        "errors_storage": "Armazenamento de Erros", "url": "URL", "concurrent_browsers": "Nr de Browsers",
-                        "password": "Senha", "app_pin": "Mobile App Pin"}
+        translations = {"url": "URL", "modelos_storage": "Folder com Modelos",
+                        "relatorios_storage": "Folder para criar Relatorios", "user": "Usuário no Zabbix",
+                        "password": "Senha no Zabbix", "excel_relatorios": "Servidores p/ gerar Relatorios"}
         if not reverse:
             return translations.get(key, key.capitalize())
         else:

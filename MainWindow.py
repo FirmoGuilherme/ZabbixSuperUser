@@ -6,15 +6,18 @@ from os import system
 from os.path import join
 from src.Zabbix.ZabbixHandler import ZabbixHandler
 from src.Constants.Constants import CONSTANTS
-from threading import Thread
+from src.Utils import Thread
+from PIL import Image
+from io import BytesIO
+from base64 import b64decode
 
 
 class ParentWindow(Frame):
 
     def __init__(self, parent):
+        Frame.__init__(self, parent)
         self.CONSTANTS = CONSTANTS
         self.ZabbixHandler = ZabbixHandler()
-        Frame.__init__(self, parent)
         # White and Light Blue, respectively
         self.colors = ("#FFFFFF", "#3A7FF6")
         self.parent_window = parent
@@ -25,22 +28,38 @@ class ParentWindow(Frame):
         self.parent_window.resizable(False, False)
         self.__load_images()
         self.__init_configs_window()
-        self.__init_run_window()
-        self.toggle_run_window()
+        if self.ZabbixHandler.gerar_lista_servidores() == AttributeError:
+            self.toggle_configs_window()
+            messagebox.showerror(title="Erro", message="Usuário ou senha incorreto do zabbix!\
+                \nVocê será redirecionado para a tela de configurações para verificar tais valores\
+                \nApós isso, reinicie o aplicativo.")
+        else:
+            self.__init_run_window()
+            self.toggle_run_window()     
 
     def __load_images(self):
+        # self.img_logo = PhotoImage(
+        #     file=join("src", "Images", "logo-work-db.png"))
+        # self.test_cases_img = PhotoImage(
+        #     file=join("src", "Images", "Test_cases.png"))
+        # self.configuracoes_img = PhotoImage(
+        #     file=join("src", "Images", "Configuracoes.png"))
+        # self.voltar_img = PhotoImage(file=join("src", "Images", "Voltar.png"))
+        # self.salvar_img = PhotoImage(file=join("src", "Images", "Salvar.png"))
+        # self.executar_img = PhotoImage(
+        #     file=join("src", "Images", "Executar.png"))
+        # self.updte_src_img = PhotoImage(
+        #     file=join("src", "Images", "Reload_src.png"))
         self.img_logo = PhotoImage(
-            file=join("src", "Images", "logo-work-db.png"))
-        self.test_cases_img = PhotoImage(
-            file=join("src", "Images", "Test_cases.png"))
+            data= self.CONSTANTS.LOGO_B64)
         self.configuracoes_img = PhotoImage(
-            file=join("src", "Images", "Configuracoes.png"))
-        self.voltar_img = PhotoImage(file=join("src", "Images", "Voltar.png"))
-        self.salvar_img = PhotoImage(file=join("src", "Images", "Salvar.png"))
+            data=self.CONSTANTS.CONFIGS_B64)
+        self.voltar_img = PhotoImage(
+            data=self.CONSTANTS.VOLTAR_B64)
+        self.salvar_img = PhotoImage(
+            data=self.CONSTANTS.SALVAR_B64)
         self.executar_img = PhotoImage(
-            file=join("src", "Images", "Executar.png"))
-        self.updte_src_img = PhotoImage(
-            file=join("src", "Images", "Reload_src.png"))
+            data=self.CONSTANTS.EXECUTAR_B64)
 
     def __init_configs_window(self):
         configuracoes = {key:value for key, value in zip(list(self.CONSTANTS.CONFIGS.__dict__.keys())[:], 
@@ -56,7 +75,7 @@ class ParentWindow(Frame):
         # Right Canvas
         self.right_canvas_configs = Canvas(
             self.parent_window, bg=self.colors[0], width=self.geometry[0] / 2, height=self.geometry[1], bd=0, highlightthickness=0, relief="ridge")
-        self.__set_title(self.right_canvas_configs, title="Configuracoes")
+        self.__set_title(self.right_canvas_configs, title="Configurações")
 
         # Botao Voltar
         trocar_button_obj = Button(image=self.voltar_img, borderwidth=0, highlightthickness=0, command=lambda: [
@@ -171,15 +190,30 @@ class ParentWindow(Frame):
 
     def gerar_relatorio(self):
         if self.clicked_menu.get() == "Todos":
-            Thread(self.ZabbixHandler.gerar_relatorio(todos = True)).start()
+            th = Thread(target = self.ZabbixHandler.gerar_relatorio, todos = True).start()
+            messagebox.showinfo(title="Informação", message="Gerando relatórios da planilha")
         elif self.clicked_menu.get() == "Grupo de Hosts":
-            Thread(self.ZabbixHandler.gerar_relatorio(host_group=self.clicked_sub_menu.get())).start()
+            th = Thread(target = self.ZabbixHandler.gerar_relatorio, host_group=self.clicked_sub_menu.get()).start()
+            messagebox.showinfo(title="Informação", message=f"Gerando relatórios do grupo  {self.clicked_sub_menu.get()}")
         else:
             name = self.clicked_sub_menu.get()
             if all([char in "1234567890" for char in name]):
-                Thread(self.ZabbixHandler.gerar_relatorio(id = int(name))).start()
+                th = Thread(target = self.ZabbixHandler.gerar_relatorio, id=int(name)).start()
             else:
-                Thread(self.ZabbixHandler.gerar_relatorio(name = name)).start()
+                th = Thread(target = self.ZabbixHandler.gerar_relatorio, name=name).start()
+            messagebox.showinfo(title="Informação", message=f"Gerando relatórios de {name}")
+        Thread(target = self.__thread_notif, th = th).start()
+
+    def __thread_notif(self, th):
+        try:
+            result = th.result()
+        except Exception as excp:
+            if type(excp) == FileNotFoundError:
+                messagebox.showerror(title="Erro", message="Planilha do Excel não encontrada!\
+                    \nVerifique as configurações.")
+            return
+        if result:
+            messagebox.showerror(title="Erro", message="\n".join(result))
 
     def salvar_configuracoes(self):
         # Extrai todos os inputs e os traduz para nome encontrado no Json
@@ -195,4 +229,7 @@ class ParentWindow(Frame):
 window = Tk()
 main = ParentWindow(window)
 main.pack()
-main.mainloop()
+try:
+    main.mainloop()
+finally:
+    Thread.exit()

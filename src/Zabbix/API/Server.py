@@ -91,11 +91,13 @@ class Server(GenericZabbixObject):
         0 = Modelo encontrado
         1 = Modelo não encontrado
         '''
+        error = None
         path_salvar = path.join(self.CONSTANTS.CONFIGS.relatorios_storage, self.host)
         try:
             makedirs(path_salvar)
         except FileExistsError:
             pass
+
         try:
             copy(path.join(self.CONSTANTS.CONFIGS.modelos_storage, f"{self.host}.docx"), 
                 path.join(path_salvar, f"_{self.host}.docx"))
@@ -106,8 +108,10 @@ class Server(GenericZabbixObject):
                 path.join(path_salvar, f"_{self.host}.docx"))
         except FileNotFoundError:
             # Sem modelo
-            pass
+            error = FileNotFoundError
 
         for graph in self.graphs:
             img = graph.get_image()
             img.save(path.join(path_salvar, f"{graph.name}.png"))
+
+        return error, self.host

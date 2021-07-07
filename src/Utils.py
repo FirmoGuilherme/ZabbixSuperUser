@@ -2,6 +2,48 @@ from os import path, mkdir
 import logging
 from json import dump, load
 from traceback import format_exc
+import concurrent.futures
+import pandas as pd
+
+class Thread():
+
+    all_threads = []
+    ThreadPoolExecutor = concurrent.futures.ThreadPoolExecutor()
+
+    def __init__(self, target, *args, **kwargs):
+        self.target = target
+        self.args = args
+        self.kwargs = kwargs
+
+    def get_amount_running_threads():
+        return Thread.ThreadPoolExecutor._work_queue.qsize()
+
+    def start(self):
+        try:
+            if self.args:
+                new = Thread.ThreadPoolExecutor.submit(
+                    lambda: self.target(*self.args))
+            elif self.kwargs:
+                new = Thread.ThreadPoolExecutor.submit(
+                    lambda: self.target(**self.kwargs))
+            else:
+                new = Thread.ThreadPoolExecutor.submit(self.target)
+        except:
+            pass
+        Thread.all_threads.append(new)
+        return new
+
+    def exit():
+        for count, th in enumerate(Thread.all_threads):
+            if th.exception():
+                try:
+                    th.result()
+                except Exception as excp:
+                    Logger.log_error(f"{excp}\n")
+            try:
+                th.set_result("finished")
+            except:
+                continue
 
 def remove_invalid_char(name):
     blacklist = [

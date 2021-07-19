@@ -86,11 +86,7 @@ class Server(GenericZabbixObject):
         for obj in events:
             self.events.append(Event(obj))
 
-    def gerar_relatorio(self):
-        '''
-        0 = Modelo encontrado
-        1 = Modelo não encontrado
-        '''
+    def gerar_relatorio(self, start_date, end_date):
         error = None
         path_salvar = path.join(self.CONSTANTS.CONFIGS.relatorios_storage, self.host)
         try:
@@ -111,7 +107,7 @@ class Server(GenericZabbixObject):
             error = FileNotFoundError
 
         for graph in self.graphs:
-            img = graph.get_image()
+            img = graph.get_image(start_date, end_date)
             img.save(path.join(path_salvar, f"{graph.name}.png"))
 
         return error, self.host

@@ -8,11 +8,11 @@ class Graph(GenericZabbixObject):
     def __init__(self, raw_data):
         super().__init__(raw_data)
 
-    def get_image(self):
+    def get_image(self, start_date, end_date):
         if "Disk" not in self.name and "Swap" not in self.name:
-            self.image = self.__get_image_bytes(url = f"http://guardiao.workdb.com.br/chart2.php?graphid={self.graphid}&from=now-1M%2FM&to=now-1M%2FM&profileIdx=web.graphs.filter&profileIdx2={self.graphid}=um5etv25&screenid=")
+            self.image = self.__get_image_bytes(url = f'http://guardiao.workdb.com.br/chart2.php?graphid={self.graphid}&from={start_date}&to={end_date}&profileIdx=web.graphs.filter&profileIdx2={self.graphid}=um5etv25&screenid=')
         else:
-            self.image = self.__get_image_bytes(url = f"http://guardiao.workdb.com.br/chart2.php?graphid={self.graphid}&from=now-1M%2FM&to=now-1M%2FM&profileIdx=web.graphs.filter&profileIdx2={self.graphid}&width=1274&height=280&_=um5ge3fh&screenid=")
+            self.image = self.__get_image_bytes(url = f'http://guardiao.workdb.com.br/chart2.php?graphid={self.graphid}&from={start_date}&to={end_date}&profileIdx=web.graphs.filter&profileIdx2={self.graphid}&width=1274&height=280&_=um5ge3fh&screenid=')
         return self.image
 
     def __get_image_bytes(self, url):

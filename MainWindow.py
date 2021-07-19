@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from tkinter import *
 from tkinter import messagebox
+from tkcalendar import Calendar, DateEntry
 from os import system
 from os.path import join
 from src.Zabbix.ZabbixHandler import ZabbixHandler
@@ -10,6 +11,8 @@ from src.Utils import Thread
 from PIL import Image
 from io import BytesIO
 from base64 import b64decode
+from datetime import datetime
+from calendar import monthrange
 
 
 class ParentWindow(Frame):
@@ -38,18 +41,6 @@ class ParentWindow(Frame):
             self.toggle_run_window()     
 
     def __load_images(self):
-        # self.img_logo = PhotoImage(
-        #     file=join("src", "Images", "logo-work-db.png"))
-        # self.test_cases_img = PhotoImage(
-        #     file=join("src", "Images", "Test_cases.png"))
-        # self.configuracoes_img = PhotoImage(
-        #     file=join("src", "Images", "Configuracoes.png"))
-        # self.voltar_img = PhotoImage(file=join("src", "Images", "Voltar.png"))
-        # self.salvar_img = PhotoImage(file=join("src", "Images", "Salvar.png"))
-        # self.executar_img = PhotoImage(
-        #     file=join("src", "Images", "Executar.png"))
-        # self.updte_src_img = PhotoImage(
-        #     file=join("src", "Images", "Reload_src.png"))
         self.img_logo = PhotoImage(
             data= self.CONSTANTS.LOGO_B64)
         self.configuracoes_img = PhotoImage(
@@ -118,6 +109,25 @@ class ParentWindow(Frame):
         self.right_canvas_run = Canvas(
             self.parent_window, bg=self.colors[0], width=self.geometry[0] / 2, height=self.geometry[1], bd=0, highlightthickness=0, relief="ridge")
         self.__set_title(self.right_canvas_run, title="Relatórios")
+
+        # DatePicker from
+        self.right_canvas_run.create_text(
+            240, 140, text="Dia início", fill=self.colors[1], font=("Arial-BoldMT", int(13.0)))
+        self.calendar_from = DateEntry(self.right_canvas_run, width=12, background='darkblue',
+                    foreground='white', borderwidth=2,
+                    month=datetime.now().month - 1,
+                    day=1)
+        self.calendar_from.place(x=200, y=150)
+
+
+        # DatePicker to
+        self.right_canvas_run.create_text(
+            240, 270, text="Dia Final", fill=self.colors[1], font=("Arial-BoldMT", int(13.0)))
+        self.calendar_to = DateEntry(self.right_canvas_run, width=12, background='darkblue',
+                    foreground='white', borderwidth=2,
+                    month=self.calendar_from.get_date().month,
+                    day=monthrange(datetime.now().year, self.calendar_from.get_date().month)[1])
+        self.calendar_to.place(x=200, y=280)
 
         # Botao Voltar
         trocar_button_obj = Button(image=self.voltar_img, borderwidth=0, highlightthickness=0, command=lambda: [
@@ -190,17 +200,17 @@ class ParentWindow(Frame):
 
     def gerar_relatorio(self):
         if self.clicked_menu.get() == "Todos":
-            th = Thread(target = self.ZabbixHandler.gerar_relatorio, todos = True).start()
+            th = Thread(target = self.ZabbixHandler.gerar_relatorio, start_date=self.calendar_from.get_date(), end_date=self.calendar_to.get_date(), todos = True).start()
             messagebox.showinfo(title="Informação", message="Gerando relatórios da planilha")
         elif self.clicked_menu.get() == "Grupo de Hosts":
-            th = Thread(target = self.ZabbixHandler.gerar_relatorio, host_group=self.clicked_sub_menu.get()).start()
+            th = Thread(target = self.ZabbixHandler.gerar_relatorio, start_date=self.calendar_from.get_date(), end_date=self.calendar_to.get_date(), host_group=self.clicked_sub_menu.get()).start()
             messagebox.showinfo(title="Informação", message=f"Gerando relatórios do grupo  {self.clicked_sub_menu.get()}")
         else:
             name = self.clicked_sub_menu.get()
             if all([char in "1234567890" for char in name]):
-                th = Thread(target = self.ZabbixHandler.gerar_relatorio, id=int(name)).start()
+                th = Thread(target = self.ZabbixHandler.gerar_relatorio, start_date=self.calendar_from.get_date(), end_date=self.calendar_to.get_date(), id=int(name)).start()
             else:
-                th = Thread(target = self.ZabbixHandler.gerar_relatorio, name=name).start()
+                th = Thread(target = self.ZabbixHandler.gerar_relatorio, start_date=self.calendar_from.get_date(), end_date=self.calendar_to.get_date(), name=name).start()
             messagebox.showinfo(title="Informação", message=f"Gerando relatórios de {name}")
         Thread(target = self.__thread_notif, th = th).start()
 

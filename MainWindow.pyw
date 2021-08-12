@@ -2,15 +2,11 @@
 # -*- coding: utf-8 -*-
 from tkinter import *
 from tkinter import messagebox
-from tkcalendar import Calendar, DateEntry
-from os import system
-from os.path import join
+from src.Zabbix.API.Graph import Graph
+from tkcalendar import  DateEntry
 from src.Zabbix.ZabbixHandler import ZabbixHandler
 from src.Constants.Constants import CONSTANTS
 from src.Utils import Thread
-from PIL import Image
-from io import BytesIO
-from base64 import b64decode
 from datetime import datetime
 from calendar import monthrange
 
@@ -199,7 +195,11 @@ class ParentWindow(Frame):
             self.geometry[1] * 0.86), text=title, fill=self.colors[1], font=("Arial-BoldMT", int(22.0)))
 
     def gerar_relatorio(self):
-        if self.clicked_menu.get() == "Todos":
+        if self.clicked_sub_menu.get() == "BBFUELS LINKS":
+            th = Thread(target=self.ZabbixHandler.gerar_relatorio_bbf_links,
+                start_date=self.calendar_from.get_date(), end_date=self.calendar_to.get_date()).start()
+            messagebox.showinfo(title="Informação", message="Gerando relatórios de BBFUELS LINKS")
+        elif self.clicked_menu.get() == "Todos":
             th = Thread(target = self.ZabbixHandler.gerar_relatorio, start_date=self.calendar_from.get_date(), end_date=self.calendar_to.get_date(), todos = True).start()
             messagebox.showinfo(title="Informação", message="Gerando relatórios da planilha")
         elif self.clicked_menu.get() == "Grupo de Hosts":
@@ -207,7 +207,7 @@ class ParentWindow(Frame):
             messagebox.showinfo(title="Informação", message=f"Gerando relatórios do grupo  {self.clicked_sub_menu.get()}")
         else:
             name = self.clicked_sub_menu.get()
-            if all([char in "1234567890" for char in name]):
+            if all(char in "1234567890" for char in name):
                 th = Thread(target = self.ZabbixHandler.gerar_relatorio, start_date=self.calendar_from.get_date(), end_date=self.calendar_to.get_date(), id=int(name)).start()
             else:
                 th = Thread(target = self.ZabbixHandler.gerar_relatorio, start_date=self.calendar_from.get_date(), end_date=self.calendar_to.get_date(), name=name).start()
@@ -232,7 +232,7 @@ class ParentWindow(Frame):
             key, value) in self.__dict__.items() if "input_configs" in key and len(value.get()) > 0}
         # Para cada config, checa se é um valor numérico
         for key, value in configs.items():
-            if all([char in "1234567890" for char in value]):
+            if all(char in "1234567890" for char in value):
                 configs[key] = int(value)
         self.CONSTANTS.CONFIGS.save_configs(configs)
 

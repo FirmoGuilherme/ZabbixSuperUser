@@ -1,3 +1,6 @@
+from genericpath import isfile
+from os import makedirs
+from shutil import copy
 from src.Utils import Logger, read_from_excel, Thread
 from src.Constants.Constants import CONSTANTS
 from src.Zabbix.API.Server import Server
@@ -10,11 +13,6 @@ class ZabbixHandler():
 
 	CONSTANTS = CONSTANTS
 	Logger = Logger
-
-	def __init__(self):
-		#self.input_from = input_from
-		#self.input_to = input_to
-		pass
 
 	def gerar_lista_servidores(self):
 		try:	
@@ -77,6 +75,24 @@ class ZabbixHandler():
 					errors.append("Modelo {} não encontrado!".format(name))
 			print(errors)
 			return errors
+
+	def gerar_relatorio_bbf_links(self, start_date, end_date):
+		try:
+			makedirs("Relatorios\\BBFUELS-LINKS")
+		except FileExistsError:
+			pass
+		
+		id = self.grupos_de_host["BBFUELS LINKS"]["groupid"]
+		servidores = self.CONSTANTS.ZABBIX_API.host.get(output="extend", groupids=id)
+		server_objs = [Server(server) for server in servidores]
+		for server in server_objs:
+			for graph_img in [g.get_image(start_date, end_date) for g in server.graphs]:
+				graph_img.save(f"Relatorios\\BBFUELS-LINKS\\{server.name}.png")
+		if not isfile("Modelos\\BBFUELS-LINKS.docx"):
+			return ["Modelo BBFUELS-LINKS não encontrado!"]
+		else:
+			copy("Modelos\\BBFUELS-LINKS.docx", "Relatorios\\BBFUELS-LINKS\\Links.docx")
+		return None
 
 	def get_sub_menu_presentation_list(self, chosen_menu):
 		if chosen_menu == "Todos":

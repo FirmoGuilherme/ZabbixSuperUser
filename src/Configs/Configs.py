@@ -53,7 +53,7 @@ class ConfigsHandler():
             },
             "Credentials": {
                 "user": "lucas.hoeltgebaum",
-                "password": "bDQwMjE1MDA3"
+                "password": ""
             }
         }
 

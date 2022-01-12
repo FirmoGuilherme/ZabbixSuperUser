@@ -109,10 +109,14 @@ class ParentWindow(Frame):
         # DatePicker from
         self.right_canvas_run.create_text(
             240, 140, text="Dia início", fill=self.colors[1], font=("Arial-BoldMT", int(13.0)))
+        month = (datetime.now().month - 1) or 12
+        if month == 12:
+            year = datetime.now().year - 1
         self.calendar_from = DateEntry(self.right_canvas_run, width=12, background='darkblue',
                     foreground='white', borderwidth=2,
-                    month=datetime.now().month - 1,
-                    day=1)
+                    month=month,
+                    day=1,
+                    year=year)
         self.calendar_from.place(x=200, y=150)
 
 
@@ -122,7 +126,8 @@ class ParentWindow(Frame):
         self.calendar_to = DateEntry(self.right_canvas_run, width=12, background='darkblue',
                     foreground='white', borderwidth=2,
                     month=self.calendar_from.get_date().month,
-                    day=monthrange(datetime.now().year, self.calendar_from.get_date().month)[1])
+                    day=monthrange(datetime.now().year, self.calendar_from.get_date().month)[1],
+                    year=self.calendar_from.get_date().year)
         self.calendar_to.place(x=200, y=280)
 
         # Botao Voltar

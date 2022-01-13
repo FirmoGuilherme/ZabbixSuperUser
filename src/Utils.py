@@ -1,5 +1,7 @@
 from os import path, mkdir
 import logging
+import datetime
+from dateutil import parser
 from json import dump, load
 from traceback import format_exc
 import concurrent.futures
@@ -44,6 +46,25 @@ class Thread():
                 th.set_result("finished")
             except:
                 continue
+
+def format_datetime(arg_date):
+    if arg_date is not None:
+        if type(arg_date) is not datetime.datetime:
+            try:
+                if 'Z' in arg_date or str(arg_date).count(':') == 3:
+                    arg_date = parser.parse(arg_date)
+                elif str(arg_date).count("/") == 2 and str(arg_date).count(":") == 2:
+                    if "PM" not in arg_date and "AM" not in arg_date:
+                        day, month = arg_date.split("/")[0:2]
+                        arg_date = arg_date.replace(
+                            f"{day}/{month}", r"{day}/{month}")
+                        arg_date = arg_date.format(day=month, month=day)
+                    arg_date = parser.parse(arg_date+"-03:00")
+                else:
+                    arg_date = parser.parse(arg_date+"-03:00")
+            except Exception:
+                arg_date = parser.parse(arg_date)
+    return arg_date
 
 def remove_invalid_char(name):
     blacklist = [

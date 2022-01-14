@@ -101,3 +101,24 @@ for item_name, history_list in history.items():
 
 plt.show()
 print('a')
+
+
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+x = np.linspace(0, 1, 500)
+y = np.sin(4 * np.pi * x) * np.exp(-5 * x)
+fig, ax = plt.subplots()
+
+ax.fill(x, y, zorder=10)
+ax.grid(True, zorder=5)
+
+x = np.linspace(0, 2 * np.pi, 500)
+y1 = np.sin(x)
+y2 = np.sin(3 * x)
+
+fig.show()
+
+print()

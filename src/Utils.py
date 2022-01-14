@@ -6,6 +6,7 @@ from json import dump, load
 from traceback import format_exc
 import concurrent.futures
 import pandas as pd
+import time
 
 class Thread():
 
@@ -46,6 +47,28 @@ class Thread():
                 th.set_result("finished")
             except:
                 continue
+
+def hex_to_rgb(hex):
+  rgb = []
+
+  for i in (0, 2, 4):
+    decimal = int(hex[i:i+2], 16)
+    rgb.append(decimal / 1000)
+
+  return tuple(rgb)
+
+def days_difference(start, end):
+    duration = end - start
+    duration_in_s = duration.total_seconds()  
+    days  = duration.days 
+    days  = divmod(duration_in_s, 86400)[0]
+    return days + 1
+
+def get_time_difference(time1, time2):
+    time1 = format_datetime(time1)
+    time2 = format_datetime(time2)
+    return abs(time.mktime(time1.timetuple()) - time.mktime(time2.timetuple()))
+
 
 def format_datetime(arg_date):
     if arg_date is not None:

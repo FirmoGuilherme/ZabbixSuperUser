@@ -12,7 +12,9 @@ class GenericZabbixObject(dict):
 		self.api = api
 		self.raw_data = raw_data
 		for attribute, value in raw_data.items():
-			if value and type(value) in (str, int, float):
+			if attribute == "color":
+				self['color'] = value
+			elif value and type(value) in (str, int, float):
 				if all(char in "1234567890" for char in str(value)):
 					translation = self._translate_numbers(attribute, value)
 					self[remove_invalid_char(attribute)] = translation

@@ -42,83 +42,58 @@ if __name__ == "__main__":
     [valores := valores + v for k, v in history.items()]
     maior_valor = max(e['value'] for e in valores)
     menor_valor = min(e['value'] for e in valores)
-    # variável logo acima contém os dados que serão utilizados para gerar o gráfico com id '6364'
+    
+
+def create_ax(figure):
+    ax = figure.add_subplot(111)
+    # ax.set_facecolor('gray')
+    
+    ax.set_ylim(menor_valor, maior_valor)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%d/%m %H:%M'))
+    ax.xaxis.set_major_locator(mdates.DayLocator())
+    return ax
 
 
-figure = plt.figure()
+def get_datas():
+    time_dif = get_time_difference(start_date, end_date)
+    datas = [start_date]
 
-ax = figure.add_subplot(111)
-ax.set_facecolor('gray')
+    time_step = time_dif / QTD_TIMESTAMPS
+    previous_time = start_date
 
-figure.suptitle(graph['name'], fontsize=20)
-# x_axis = plt.axes()
-# y_axis = plt.axes()
-# figure.add_axes(x_axis)
-# figure.add_axes(y_axis)
+    for _ in range(QTD_TIMESTAMPS+1):
+        new_time = previous_time + datetime.timedelta( seconds = time_step )
+        if new_time > end_date:
+            break
+        datas.append(new_time)
+        previous_time = new_time
 
-ax.set_ylim(menor_valor, maior_valor)
-
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%d/%m %H:%M'))
-ax.xaxis.set_major_locator(mdates.DayLocator())
-
-# plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%d/%m %H:%M'))
-# plt.gca().xaxis.set_major_locator(mdates.DayLocator())
-
-time_dif = get_time_difference(start_date, end_date)
-datas = [start_date]
-
-time_step = time_dif / QTD_TIMESTAMPS
-previous_time = start_date
-
-for _ in range(QTD_TIMESTAMPS+1):
-    new_time = previous_time + datetime.timedelta( seconds = time_step )
-    if new_time > end_date:
-        break
-    datas.append(new_time)
-    previous_time = new_time
-
-datas.append(end_date)
-
-ax.set_xticks(datas)
-ax.set_xlim(start_date, end_date)
-
-# axes = plt.axes().set_facecolor('gray')
-
-
+    datas.append(end_date)
+    return datas
 
 
 # Precisa ser executado na ordem descrecente de MENOR VALOR
-for item_name, history_list in history.items():
-    times = [h['clock'] for h in history_list]
-    values = [h['value'] for h in history_list]
-    color = hex_to_rgb([g['color'] for g in graph_items if g['itemid'] == history_list[0]['itemid']][0])
-    ax.plot(times, values, label=item_name, color=color)
-    ax.fill_between(0, values, color=color, y2=menor_valor)
-    break
-
-
-# figure.legend()
-
-plt.show()
-print('a')
+def plot_valores(subplot):
+    for item_name, history_list in history.items():
+        times = [h['clock'] for h in history_list]
+        values = [h['value'] for h in history_list]
+        color = hex_to_rgb([g['color'] for g in graph_items if g['itemid'] == history_list[0]['itemid']][0])
+        subplot.plot(times, values, label=item_name, color=color)
+        subplot.fill_between(0, values, color=color, y2=menor_valor)
 
 
 
+figure = plt.figure()
+figure.suptitle(graph['name'], fontsize=20)
+subplot = create_ax(figure)
+datas = get_datas()
+plot_valores(subplot)
+subplot.set_xticks(datas)
+subplot.set_xlim(start_date, end_date)
 
-import numpy as np
-import matplotlib.pyplot as plt
+# subplot.grid(True, zorder=5)
 
-x = np.linspace(0, 1, 500)
-y = np.sin(4 * np.pi * x) * np.exp(-5 * x)
-fig, ax = plt.subplots()
 
-ax.fill(x, y, zorder=10)
-ax.grid(True, zorder=5)
-
-x = np.linspace(0, 2 * np.pi, 500)
-y1 = np.sin(x)
-y2 = np.sin(3 * x)
-
-fig.show()
+figure.show()
 
 print()
